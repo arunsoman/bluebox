@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   FileText,
   Upload,
@@ -57,6 +58,7 @@ interface PRDInputProps {
 
 /* ─── component ─── */
 export default function PRDInput({ onSubmit, classifyPRD }: PRDInputProps) {
+  const navigate = useNavigate();
   const [text, setText] = useState('');
   const [classification, setClassification] = useState<PRDClassification | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -143,14 +145,15 @@ export default function PRDInput({ onSubmit, classifyPRD }: PRDInputProps) {
       if (FEATURES.liveApi) {
         await createSession(text);
       }
-      // Always update the local store (triggers the Dashboard view)
-      onSubmit(text);
     } catch (err) {
-      console.error('Failed to submit PRD:', err);
-      // Still show the dashboard even if backend call fails
-      onSubmit(text);
+      console.warn('[PRDInput] Backend session creation failed, continuing in local mode:', err);
     }
-    // Component will unmount after store update — no need to reset isSubmitting
+
+    // Update the store with the PRD
+    await onSubmit(text);
+
+    // Navigate to Pipeline Studio where the actual pipeline runs
+    navigate('/studio');
   };
 
   /* ── sample PRDs ── */

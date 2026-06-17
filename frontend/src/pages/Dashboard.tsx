@@ -244,6 +244,28 @@ export default function Dashboard() {
         </motion.div>
       )}
 
+      {/* ── Go to Studio CTA ── */}
+      {hasActivePRD && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 px-5 py-3 rounded-xl cursor-pointer"
+          style={{
+            background: 'rgba(0,245,255,0.08)',
+            border: '1px solid rgba(0,245,255,0.25)',
+          }}
+          onClick={() => navigate('/studio')}
+          whileHover={{ scale: 1.005 }}
+        >
+          <Play size={18} style={{ color: '#00F5FF' }} />
+          <div className="flex-1">
+            <span className="font-heading-sm text-text-primary">Pipeline is running</span>
+            <span className="font-body-sm text-text-tertiary ml-2">Click here to go to the Pipeline Studio</span>
+          </div>
+          <span className="font-heading-sm" style={{ color: '#00F5FF' }}>Open Studio &rarr;</span>
+        </motion.div>
+      )}
+
       {/* --- Section 1: Page Header --- */}
       <motion.div
         className="flex items-center justify-between"
@@ -255,9 +277,6 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <GlassButton variant="primary" icon={<Plus size={16} />} onClick={resetPRD}>
             New Pipeline
-          </GlassButton>
-          <GlassButton variant="secondary" icon={<Download size={16} />}>
-            Export Report
           </GlassButton>
         </div>
       </motion.div>
