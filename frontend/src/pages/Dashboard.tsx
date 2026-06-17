@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,7 +6,6 @@ import {
   ClipboardCheck,
   Download,
   Terminal,
-  ChevronRight,
   CheckCircle,
   XCircle,
   FileCheck,
@@ -63,59 +62,27 @@ const activityColors: Record<ActivityEvent['type'], string> = {
 /* ------------------------------------------------------------------ */
 function useCountUp(target: number, duration = 800, startOnMount = true) {
   const [val, setVal] = useState(0);
-  const rafRef = useRef<number>(0);
-  const startRef = useRef<number>(0);
 
   useEffect(() => {
     if (!startOnMount) return;
-    startRef.current = performance.now();
+    const start = performance.now();
+    let raf = 0;
 
     const tick = (now: number) => {
-      const elapsed = now - startRef.current;
+      const elapsed = now - start;
       const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       setVal(Math.round(target * eased));
       if (progress < 1) {
-        rafRef.current = requestAnimationFrame(tick);
+        raf = requestAnimationFrame(tick);
       }
     };
 
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [target, duration, startOnMount]);
 
   return val;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Mini sparkline for metric card                                      */
-/* ------------------------------------------------------------------ */
-function MiniSparkline({ data, color }: { data: number[]; color: string }) {
-  const width = 80;
-  const height = 30;
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const points = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * width;
-      const y = height - ((v - min) / range) * height;
-      return `${x},${y}`;
-    })
-    .join(' ');
-
-  return (
-    <svg width={width} height={height} className="opacity-70">
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 /* ================================================================== */
@@ -126,8 +93,6 @@ export default function Dashboard() {
   const stages = usePipelineStore((s) => s.stages);
   const metrics = usePipelineStore((s) => s.metrics);
   const throughput24h = usePipelineStore((s) => s.throughputData24h);
-  const throughput7d = usePipelineStore((s) => s.throughputData7d);
-  const throughput30d = usePipelineStore((s) => s.throughputData30d);
   const activityFeed = usePipelineStore((s) => s.activityFeed);
   const systemStatus = usePipelineStore((s) => s.systemStatus);
   const hasActivePRD = usePipelineStore((s) => s.hasActivePRD);
@@ -137,27 +102,21 @@ export default function Dashboard() {
   const resetPRD = usePipelineStore((s) => s.resetPRD);
   const wsStatus = useWebSocketStore((s) => s.status);
 
-  const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
-
-  /* ── Real data hooks ── */
-  const projectId = usePipelineStore((s) => s.prdClassification?.wordCount ? `proj-${s.prdText.slice(0, 20).replace(/\W/g, '')}` : undefined);
-  const { loading: dataLoading, error: dataError, refresh } = usePipelineData(projectId);
+  const actualProjectId = usePipelineStore((s) => s.projectId);
+  const { loading: dataLoading, error: dataError, refresh } = usePipelineData(actualProjectId ?? undefined);
   const backendStatus = useBackendStatus(30000);
 
   /* ── Auto-refresh when PRD is submitted ── */
   useEffect(() => {
-    if (hasActivePRD && FEATURES.liveApi) {
+    if (hasActivePRD && FEATURES.liveApi && actualProjectId) {
       refresh();
     }
-  }, [hasActivePRD, refresh]);
+  }, [hasActivePRD, actualProjectId, refresh]);
 
   const activeCount = useCountUp(metrics.activePipelines, 800);
   const completedCount = useCountUp(metrics.completedBlueprints, 800);
 
-  const throughputData =
-    timeRange === '24h' ? throughput24h : timeRange === '7d' ? throughput7d : throughput30d;
-
-  const sparkData = [4, 7, 5, 9, 6, 11, 8];
+  const throughputData = throughput24h;
 
   const healthRadius = 20;
   const healthCircumference = 2 * Math.PI * healthRadius;
@@ -343,10 +302,7 @@ export default function Dashboard() {
           <GlassCard variant="frosted" padding="md" hover>
             <p className="font-body-sm text-text-tertiary">Completed Blueprints</p>
             <p className="font-display-xl text-text-primary mt-1">{completedCount}</p>
-            <div className="flex items-center justify-between mt-0.5">
-              <p className="font-body-sm text-text-tertiary">All time</p>
-              <MiniSparkline data={sparkData} color="#00F5FF" />
-            </div>
+            <p className="font-body-sm text-text-tertiary mt-0.5">All time</p>
           </GlassCard>
         </motion.div>
 
@@ -355,12 +311,7 @@ export default function Dashboard() {
           <GlassCard variant="frosted" padding="md" hover>
             <p className="font-body-sm text-text-tertiary">Avg. Stage Time</p>
             <p className="font-display-xl text-text-primary mt-1">{metrics.avgStageTime}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <p className="font-body-sm text-text-tertiary">Per stage across all runs</p>
-              <span className="font-mono-sm text-[#39FF14] bg-[rgba(57,255,20,0.1)] px-1.5 py-0.5 rounded">
-                -12%
-              </span>
-            </div>
+            <p className="font-body-sm text-text-tertiary mt-0.5">Per stage across all runs</p>
           </GlassCard>
         </motion.div>
 
@@ -477,27 +428,33 @@ export default function Dashboard() {
                   />
                 </div>
 
-                {/* Stats row */}
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div>
-                    <p className="font-body-sm text-text-tertiary">Runs</p>
-                    <p className="font-mono-sm text-text-secondary">{stage.runsToday}</p>
-                  </div>
-                  <div>
-                    <p className="font-body-sm text-text-tertiary">Avg</p>
-                    <p className="font-mono-sm text-text-secondary">{stage.avgTime}</p>
-                  </div>
-                  <div>
-                    <p className="font-body-sm text-text-tertiary">Rate</p>
-                    <p
-                      className="font-mono-sm"
-                      style={{
-                        color: stage.successRate > 90 ? '#39FF14' : stage.successRate > 70 ? '#FFB800' : '#FF3366',
-                      }}
-                    >
-                      {stage.successRate}%
-                    </p>
-                  </div>
+                {/* Status info */}
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-body-sm text-text-tertiary line-clamp-1">{stage.description}</p>
+                  <span
+                    className="font-mono-sm px-1.5 py-0.5 rounded flex-shrink-0 ml-2"
+                    style={{
+                      fontSize: '10px',
+                      color:
+                        stage.status === 'completed'
+                          ? '#39FF14'
+                          : stage.status === 'running'
+                          ? '#00F5FF'
+                          : stage.status === 'failed'
+                          ? '#FF3366'
+                          : '#4A6487',
+                      background:
+                        stage.status === 'completed'
+                          ? 'rgba(57,255,20,0.08)'
+                          : stage.status === 'running'
+                          ? 'rgba(0,245,255,0.08)'
+                          : stage.status === 'failed'
+                          ? 'rgba(255,51,102,0.08)'
+                          : 'rgba(138,180,230,0.05)',
+                    }}
+                  >
+                    {stage.status === 'completed' ? 'DONE' : stage.status === 'running' ? `${stage.progress}%` : stage.status === 'failed' ? 'FAIL' : 'WAIT'}
+                  </span>
                 </div>
 
                 {/* Footer */}
@@ -514,21 +471,7 @@ export default function Dashboard() {
       <GlassCard variant="frosted" padding="lg">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-heading-md text-text-primary">Pipeline Throughput</h2>
-          <div className="flex items-center gap-1">
-            {(['24h', '7d', '30d'] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`px-3 py-1 rounded-full font-body-sm transition-all duration-200 ${
-                  timeRange === range
-                    ? 'glass-tinted text-[#00F5FF] border border-[rgba(0,245,255,0.3)]'
-                    : 'glass-clear text-text-tertiary hover:text-text-primary'
-                }`}
-              >
-                {range === '24h' ? '24h' : range === '7d' ? '7d' : '30d'}
-              </button>
-            ))}
-          </div>
+          <span className="font-body-sm text-text-tertiary">24h</span>
         </div>
         <div className="h-[280px] w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -607,7 +550,7 @@ export default function Dashboard() {
                           {item.badge}
                         </span>
                       ) : (
-                        <ChevronRight size={14} className="text-text-tertiary" />
+                        <span className="text-text-tertiary text-xs">&rarr;</span>
                       )
                     }
                     className="justify-between text-left"
