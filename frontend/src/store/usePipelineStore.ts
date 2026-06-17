@@ -221,12 +221,41 @@ function generateThroughputData(points: number, maxCount: number): ThroughputPoi
   return data;
 }
 
+const SECTION_KEYWORDS = [
+  'actor', 'actors', 'requirement', 'requirements', 'feature', 'features',
+  'use case', 'use cases', 'story', 'stories', 'architecture',
+  'api', 'database', 'security', 'overview', 'scope', 'performance',
+  'constraint', 'constraints', 'stakeholder', 'stakeholders',
+  'dependency', 'dependencies', 'interface', 'interfaces',
+  'functional', 'non-functional', 'endpoint', 'endpoints',
+  'user', 'users', 'system', 'module', 'modules',
+];
+
 function classifyText(text: string): PRDClassification {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  const hasHeaders = /#{1,6}\s+\w|^(\w+\s*){2,}:\s*\w/m.test(text);
-  const hasSections = /\b(actors?|requirements?|features?|use cases?|stories?|architecture?|api|database|security|overview|scope)\b/gi.test(text);
-  const hasNumbers = /\d+/.test(text);
-  const avgSentenceLength = words > 0 ? text.split(/[.!?]+/).filter(s => s.trim().length > 0).reduce((acc, s) => acc + s.trim().split(/\s+/).length, 0) / Math.max(1, text.split(/[.!?]+/).filter(s => s.trim().length > 0).length) : 0;
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { category: 'SEED_ONLY', confidence: 0.5, basis: ['Empty input'], wordCount: 0 };
+  }
+
+  // Safe word count — cap at first 5000 chars to avoid huge text hangs
+  const sample = trimmed.length > 5000 ? trimmed.slice(0, 5000) : trimmed;
+  const words = sample.split(/\s+/).filter(Boolean).length;
+
+  // Check for markdown headers (# Header) — safe string check
+  const hasHeaders = sample.split('\n').some(line => /^#{1,6}\s+\w/.test(line));
+
+  // Check for section keywords — use simple includes instead of regex
+  const lowerSample = sample.toLowerCase();
+  const hasSections = SECTION_KEYWORDS.some(kw => lowerSample.includes(kw));
+
+  // Check for numbers
+  const hasNumbers = /\d/.test(sample);
+
+  // Avg sentence length — cap sentences checked to 50
+  const sentences = sample.split(/[.!?]+/).filter(s => s.trim().length > 0).slice(0, 50);
+  const avgSentenceLength = sentences.length > 0
+    ? sentences.reduce((acc, s) => acc + s.trim().split(/\s+/).filter(Boolean).length, 0) / sentences.length
+    : 0;
 
   let category: PRDClassification['category'];
   let confidence: number;
