@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Play,
@@ -14,6 +14,9 @@ import {
   Info,
   Plus,
   Upload,
+  RefreshCw,
+  Server,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -32,6 +35,9 @@ import PipelineStageNode from '@/components/PipelineStageNode';
 import PRDInput from '@/components/PRDInput';
 import { usePipelineStore } from '@/store/usePipelineStore';
 import { useWebSocketStore } from '@/store/useWebSocketStore';
+import { useBackendStatus } from '@/hooks/useBackendStatus';
+import { usePipelineData } from '@/hooks/usePipelineData';
+import { FEATURES } from '@/lib/config';
 import type { ActivityEvent } from '@/store/usePipelineStore';
 
 const activityIcons: Record<ActivityEvent['type'], typeof Play> = {
@@ -125,12 +131,25 @@ export default function Dashboard() {
   const activityFeed = usePipelineStore((s) => s.activityFeed);
   const systemStatus = usePipelineStore((s) => s.systemStatus);
   const hasActivePRD = usePipelineStore((s) => s.hasActivePRD);
+  const prdClassification = usePipelineStore((s) => s.prdClassification);
   const submitPRD = usePipelineStore((s) => s.submitPRD);
   const classifyPRD = usePipelineStore((s) => s.classifyPRD);
   const resetPRD = usePipelineStore((s) => s.resetPRD);
   const wsStatus = useWebSocketStore((s) => s.status);
 
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
+
+  /* ── Real data hooks ── */
+  const projectId = usePipelineStore((s) => s.prdClassification?.wordCount ? `proj-${s.prdText.slice(0, 20).replace(/\W/g, '')}` : undefined);
+  const { loading: dataLoading, error: dataError, refresh } = usePipelineData(projectId);
+  const backendStatus = useBackendStatus(30000);
+
+  /* ── Auto-refresh when PRD is submitted ── */
+  useEffect(() => {
+    if (hasActivePRD && FEATURES.liveApi) {
+      refresh();
+    }
+  }, [hasActivePRD, refresh]);
 
   const activeCount = useCountUp(metrics.activePipelines, 800);
   const completedCount = useCountUp(metrics.completedBlueprints, 800);
@@ -171,6 +190,101 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* ── Loading Banner ── */}
+      <AnimatePresence>
+        {dataLoading && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg"
+            style={{
+              background: 'rgba(0,245,255,0.08)',
+              border: '1px solid rgba(0,245,255,0.2)',
+            }}
+          >
+            <RefreshCw size={14} className="animate-spin" style={{ color: '#00F5FF' }} />
+            <span className="font-body-sm" style={{ color: '#00F5FF' }}>
+              Fetching pipeline data from backend...
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Error Banner ── */}
+      <AnimatePresence>
+        {dataError && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg"
+            style={{
+              background: 'rgba(255,51,102,0.08)',
+              border: '1px solid rgba(255,51,102,0.2)',
+            }}
+          >
+            <AlertTriangle size={14} style={{ color: '#FF3366' }} />
+            <span className="font-body-sm flex-1" style={{ color: '#FF3366' }}>
+              {dataError}
+            </span>
+            <button
+              onClick={refresh}
+              className="font-body-sm px-2 py-0.5 rounded hover:bg-white/5"
+              style={{ color: '#FF3366', border: '1px solid rgba(255,51,102,0.2)' }}
+            >
+              Retry
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── PRD Info Bar ── */}
+      {prdClassification && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 px-4 py-2.5 rounded-lg"
+          style={{
+            background: 'rgba(10,22,40,0.5)',
+            border: '1px solid rgba(138,180,230,0.1)',
+          }}
+        >
+          <FileCheck size={14} style={{ color: '#00F5FF' }} />
+          <span className="font-body-sm text-text-secondary">
+            <strong className="text-text-primary">PRD submitted</strong>
+            {' — '}
+            {prdClassification.wordCount} words, classified as{' '}
+            <span
+              className="px-1.5 py-0.5 rounded"
+              style={{
+                background:
+                  prdClassification.category === 'WELL_FORMED'
+                    ? 'rgba(57,255,20,0.1)'
+                    : prdClassification.category === 'MINIMALIST'
+                    ? 'rgba(255,184,0,0.1)'
+                    : 'rgba(0,245,255,0.1)',
+                color:
+                  prdClassification.category === 'WELL_FORMED'
+                    ? '#39FF14'
+                    : prdClassification.category === 'MINIMALIST'
+                    ? '#FFB800'
+                    : '#00F5FF',
+                fontSize: '11px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.03em',
+              }}
+            >
+              {prdClassification.category.replace('_', ' ')}
+            </span>
+            {' — '}
+            <span className="text-text-tertiary">
+              {(prdClassification.confidence * 100).toFixed(0)}% confidence
+            </span>
+          </span>
+        </motion.div>
+      )}
+
       {/* --- Section 1: Page Header --- */}
       <motion.div
         className="flex items-center justify-between"
@@ -559,6 +673,42 @@ export default function Dashboard() {
             <div className="mb-3">
               <ConnectionStatusPill size="md" />
             </div>
+
+            {/* Backend Status */}
+            <div className="flex items-center gap-2 mb-3 px-2 py-1.5 rounded"
+              style={{ background: 'rgba(10,22,40,0.4)' }}
+            >
+              <Server size={12} style={{ color: '#8BA4C7' }} />
+              <span className="font-body-sm text-text-tertiary">Backend:</span>
+              {backendStatus.status === 'online' && (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#39FF14]" />
+                  <span className="font-body-sm text-[#39FF14]">Online</span>
+                  {backendStatus.latency !== null && (
+                    <span className="font-mono-sm text-text-tertiary">({backendStatus.latency}ms)</span>
+                  )}
+                </>
+              )}
+              {backendStatus.status === 'offline' && (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF3366]" />
+                  <span className="font-body-sm text-[#FF3366]">Offline</span>
+                </>
+              )}
+              {backendStatus.status === 'checking' && (
+                <>
+                  <RefreshCw size={10} className="animate-spin" style={{ color: '#FFB800' }} />
+                  <span className="font-body-sm text-[#FFB800]">Checking...</span>
+                </>
+              )}
+              {backendStatus.status === 'mock' && (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FFB800]" />
+                  <span className="font-body-sm text-[#FFB800]">Mock Mode</span>
+                </>
+              )}
+            </div>
+
             <p className="font-body-sm text-text-tertiary mb-4">
               Last sync: {systemStatus.lastSync}
             </p>

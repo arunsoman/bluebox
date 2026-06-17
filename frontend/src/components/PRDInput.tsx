@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import GlassCard from './GlassCard';
 import GlassButton from './GlassButton';
+import { FEATURES } from '@/lib/config';
+import { createSession } from '@/lib/api';
 import type { PRDClassification } from '@/store/usePipelineStore';
 
 /* ─── ease token ─── */
@@ -132,14 +134,23 @@ export default function PRDInput({ onSubmit, classifyPRD }: PRDInputProps) {
   };
 
   /* ── submit ── */
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!text.trim() || isSubmitting) return;
     setIsSubmitting(true);
-    // Small delay to show the loading state, then submit
-    requestAnimationFrame(() => {
+
+    try {
+      // If live API is enabled, create a real backend session
+      if (FEATURES.liveApi) {
+        await createSession(text);
+      }
+      // Always update the local store (triggers the Dashboard view)
       onSubmit(text);
-      // Component will unmount after store update — no need to reset isSubmitting
-    });
+    } catch (err) {
+      console.error('Failed to submit PRD:', err);
+      // Still show the dashboard even if backend call fails
+      onSubmit(text);
+    }
+    // Component will unmount after store update — no need to reset isSubmitting
   };
 
   /* ── sample PRDs ── */

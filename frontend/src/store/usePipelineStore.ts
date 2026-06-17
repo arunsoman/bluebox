@@ -324,12 +324,14 @@ export const usePipelineStore = create<PipelineState>((set) => ({
 
   classifyPRD: (text: string) => classifyText(text),
 
-  submitPRD: (text: string) =>
+  submitPRD: (text: string) => {
+    const classification = classifyText(text);
     set(() => ({
       hasActivePRD: true,
       prdText: text,
-      prdClassification: classifyText(text),
-    })),
+      prdClassification: classification,
+    }));
+  },
 
   resetPRD: () =>
     set(() => ({
