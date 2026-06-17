@@ -35,6 +35,13 @@ interface ThroughputPoint {
   count: number;
 }
 
+export interface PRDClassification {
+  category: 'WELL_FORMED' | 'MINIMALIST' | 'SEED_ONLY';
+  confidence: number;
+  basis: string[];
+  wordCount: number;
+}
+
 interface PipelineState {
   stages: StageData[];
   metrics: MetricData;
@@ -49,9 +56,15 @@ interface PipelineState {
     queue: boolean;
     lastSync: string;
   };
+  hasActivePRD: boolean;
+  prdText: string;
+  prdClassification: PRDClassification | null;
 
   setStageStatus: (id: number, status: StatusType, progress?: number) => void;
   addActivity: (event: ActivityEvent) => void;
+  submitPRD: (text: string) => void;
+  classifyPRD: (text: string) => PRDClassification;
+  resetPRD: () => void;
 }
 
 const initialStages: StageData[] = [
@@ -208,6 +221,41 @@ function generateThroughputData(points: number, maxCount: number): ThroughputPoi
   return data;
 }
 
+function classifyText(text: string): PRDClassification {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  const hasHeaders = /#{1,6}\s+\w|^(\w+\s*){2,}:\s*\w/m.test(text);
+  const hasSections = /\b(actors?|requirements?|features?|use cases?|stories?|architecture?|api|database|security|overview|scope)\b/gi.test(text);
+  const hasNumbers = /\d+/.test(text);
+  const avgSentenceLength = words > 0 ? text.split(/[.!?]+/).filter(s => s.trim().length > 0).reduce((acc, s) => acc + s.trim().split(/\s+/).length, 0) / Math.max(1, text.split(/[.!?]+/).filter(s => s.trim().length > 0).length) : 0;
+
+  let category: PRDClassification['category'];
+  let confidence: number;
+  const basis: string[] = [];
+
+  if (words > 500 && (hasHeaders || (hasSections && hasNumbers))) {
+    category = 'WELL_FORMED';
+    confidence = Math.min(0.95, 0.7 + (words > 1000 ? 0.15 : 0) + (hasHeaders ? 0.1 : 0));
+    basis.push(`${words} words`);
+    if (hasHeaders) basis.push('Has structural headers');
+    if (hasSections) basis.push('Contains standard PRD sections');
+  } else if (words >= 100) {
+    category = 'MINIMALIST';
+    confidence = Math.min(0.90, 0.6 + (hasSections ? 0.2 : 0) + (hasNumbers ? 0.1 : 0));
+    basis.push(`${words} words`);
+    if (hasSections) basis.push('Contains section keywords');
+    else basis.push('Limited structural markup');
+    basis.push(avgSentenceLength > 15 ? 'Long-form descriptions' : 'Concise descriptions');
+  } else {
+    category = 'SEED_ONLY';
+    confidence = Math.min(0.85, 0.5 + (words > 20 ? 0.2 : 0));
+    basis.push(`${words} words`);
+    basis.push(words < 20 ? 'Single statement' : 'Brief description');
+    basis.push('Minimal detail — will require clarification');
+  }
+
+  return { category, confidence, basis, wordCount: words };
+}
+
 export const usePipelineStore = create<PipelineState>((set) => ({
   stages: initialStages,
   metrics: {
@@ -229,6 +277,9 @@ export const usePipelineStore = create<PipelineState>((set) => ({
     queue: true,
     lastSync: '2s ago',
   },
+  hasActivePRD: false,
+  prdText: '',
+  prdClassification: null,
 
   setStageStatus: (id: number, status: StatusType, progress?: number) =>
     set((state) => ({
@@ -240,5 +291,21 @@ export const usePipelineStore = create<PipelineState>((set) => ({
   addActivity: (event: ActivityEvent) =>
     set((state) => ({
       activityFeed: [event, ...state.activityFeed].slice(0, 50),
+    })),
+
+  classifyPRD: (text: string) => classifyText(text),
+
+  submitPRD: (text: string) =>
+    set(() => ({
+      hasActivePRD: true,
+      prdText: text,
+      prdClassification: classifyText(text),
+    })),
+
+  resetPRD: () =>
+    set(() => ({
+      hasActivePRD: false,
+      prdText: '',
+      prdClassification: null,
     })),
 }));

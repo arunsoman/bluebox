@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Play,
-  Upload,
   ClipboardCheck,
   Download,
   Terminal,
@@ -13,6 +12,8 @@ import {
   FileCheck,
   Hand,
   Info,
+  Plus,
+  Upload,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -28,6 +29,7 @@ import StatusBadge from '@/components/StatusBadge';
 import GlassButton from '@/components/GlassButton';
 import ConnectionStatusPill from '@/components/ConnectionStatusPill';
 import PipelineStageNode from '@/components/PipelineStageNode';
+import PRDInput from '@/components/PRDInput';
 import { usePipelineStore } from '@/store/usePipelineStore';
 import { useWebSocketStore } from '@/store/useWebSocketStore';
 import type { ActivityEvent } from '@/store/usePipelineStore';
@@ -122,6 +124,10 @@ export default function Dashboard() {
   const throughput30d = usePipelineStore((s) => s.throughputData30d);
   const activityFeed = usePipelineStore((s) => s.activityFeed);
   const systemStatus = usePipelineStore((s) => s.systemStatus);
+  const hasActivePRD = usePipelineStore((s) => s.hasActivePRD);
+  const submitPRD = usePipelineStore((s) => s.submitPRD);
+  const classifyPRD = usePipelineStore((s) => s.classifyPRD);
+  const resetPRD = usePipelineStore((s) => s.resetPRD);
   const wsStatus = useWebSocketStore((s) => s.status);
 
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
@@ -154,6 +160,15 @@ export default function Dashboard() {
     },
   };
 
+  /* ── PRD Entry Point ── */
+  if (!hasActivePRD) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-120px)] py-8">
+        <PRDInput onSubmit={submitPRD} classifyPRD={classifyPRD} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* --- Section 1: Page Header --- */}
@@ -165,7 +180,7 @@ export default function Dashboard() {
       >
         <h1 className="font-display-lg text-text-primary">Dashboard</h1>
         <div className="flex items-center gap-3">
-          <GlassButton variant="primary" icon={<Play size={16} />} onClick={() => navigate('/studio')}>
+          <GlassButton variant="primary" icon={<Plus size={16} />} onClick={resetPRD}>
             New Pipeline
           </GlassButton>
           <GlassButton variant="secondary" icon={<Download size={16} />}>
