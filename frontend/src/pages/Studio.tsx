@@ -284,10 +284,12 @@ function ChatMessage({ role, content }: { role: 'user' | 'assistant'; content: s
 /* ------------------------------------------------------------------ */
 
 export default function Studio() {
-  /* -- Pipeline store -- */
+  /* -- Pipeline store (REAL session data) -- */
   const { stages, setStageStatus } = usePipelineStore();
+  const sessionId = usePipelineStore((s) => s.sessionId);
+  const hasActivePRD = usePipelineStore((s) => s.hasActivePRD);
 
-  /* -- Streaming simulator -- */
+  /* -- Streaming simulator (MOCK fallback) -- */
   const {
     logs,
     isRunning,
@@ -301,15 +303,17 @@ export default function Studio() {
     clear,
   } = useStreamingSimulator();
 
+  /* -- Backend connection -- */
+  const [isLive, setIsLive] = useState(false);
+  const [backendLogs, setBackendLogs] = useState<{ id: string; timestamp: string; stageId: number; severity: string; message: string }[]>([]);
+
   /* -- Local state -- */
   const [selectedStage, setSelectedStage] = useState<number>(0);
   const [steeringMode, setSteeringMode] = useState<SteeringMode>('context');
   const [runState, setRunState] = useState<PipelineRunState>('idle');
   const [autoScroll, setAutoScroll] = useState(true);
   const [showChat, setShowChat] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([
-    { role: 'assistant', content: 'Pipeline assistant ready. How can I help?' },
-  ]);
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [steeringText, setSteeringText] = useState('');
   const [showModifyArea, setShowModifyArea] = useState(false);
@@ -320,13 +324,73 @@ export default function Studio() {
   /* -- Refs -- */
   const terminalRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  /* -- Detect live vs mock mode -- */
+  useEffect(() => {
+    if (sessionId && !sessionId.startsWith('local-')) {
+      setIsLive(true);
+    } else {
+      setIsLive(false);
+    }
+  }, [sessionId]);
+
+  /* -- WebSocket connection for live mode -- */
+  useEffect(() => {
+    if (!isLive || !sessionId) return;
+
+    const wsUrl = `ws://localhost:8000/ws/steering/${sessionId}`;
+    try {
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setBackendLogs((prev) => [
+          ...prev,
+          { id: `ws-open-${Date.now()}`, timestamp: new Date().toLocaleTimeString(), stageId: 0, severity: 'success', message: 'WebSocket connected to pipeline' },
+        ]);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setBackendLogs((prev) => [
+            ...prev,
+            { id: `ws-${Date.now()}`, timestamp: new Date().toLocaleTimeString(), stageId: data.data?.stage_id || 0, severity: 'info', message: JSON.stringify(data) },
+          ]);
+        } catch {
+          setBackendLogs((prev) => [
+            ...prev,
+            { id: `ws-${Date.now()}`, timestamp: new Date().toLocaleTimeString(), stageId: 0, severity: 'info', message: event.data },
+          ]);
+        }
+      };
+
+      ws.onerror = () => {
+        setIsLive(false);
+      };
+
+      ws.onclose = () => {
+        setIsLive(false);
+      };
+    } catch {
+      setIsLive(false);
+    }
+
+    return () => {
+      wsRef.current?.close();
+    };
+  }, [isLive, sessionId]);
+
+  /* -- Display logs: live backend logs OR mock simulator logs -- */
+  const displayLogs = isLive ? backendLogs : logs;
 
   /* -- Auto-scroll terminal -- */
   useEffect(() => {
     if (autoScroll && terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
-  }, [logs, autoScroll]);
+  }, [displayLogs, autoScroll]);
 
   /* -- Elapsed timer -- */
   useEffect(() => {
@@ -390,7 +454,7 @@ export default function Studio() {
   }, [stop]);
 
   const handleCopy = useCallback(() => {
-    const text = logs.map((l) => `[${l.timestamp}] [S${l.stageId}] ${l.message}`).join('\n');
+    const text = displayLogs.map((l) => `[${l.timestamp}] [S${l.stageId}] ${l.message}`).join('\n');
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -453,6 +517,22 @@ export default function Studio() {
           {isRunning && (
             <span className="font-body-md text-text-secondary">
               — {STAGE_NAMES[simStage]}
+            </span>
+          )}
+          {/* Live / Mock mode indicator */}
+          <span
+            className="font-mono-sm px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider"
+            style={{
+              background: isLive ? 'rgba(57,255,20,0.1)' : 'rgba(255,184,0,0.1)',
+              color: isLive ? '#39FF14' : '#FFB800',
+              border: `1px solid ${isLive ? 'rgba(57,255,20,0.2)' : 'rgba(255,184,0,0.2)'}`,
+            }}
+          >
+            {isLive ? '● Live' : '● Mock'}
+          </span>
+          {sessionId && (
+            <span className="font-mono-sm text-text-tertiary text-[10px]">
+              Session: {sessionId.slice(0, 8)}...
             </span>
           )}
         </div>
@@ -654,16 +734,16 @@ export default function Studio() {
               ref={terminalRef}
               className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-0.5"
             >
-              {logs.length === 0 ? (
+              {displayLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <Terminal className="w-8 h-8 text-[#4A6487] mb-2" />
                   <p className="font-body-md text-text-tertiary">
-                    Terminal ready. Start the pipeline to see streaming output.
+                    {hasActivePRD ? 'Pipeline initialized — click Start to begin' : 'Submit a PRD on the Dashboard first'}
                   </p>
                 </div>
               ) : (
                 <AnimatePresence initial={false}>
-                  {logs.map((log) => (
+                  {displayLogs.map((log) => (
                     <TerminalLogLine
                       key={log.id}
                       log={log}
@@ -826,7 +906,7 @@ export default function Studio() {
                       </div>
                       <div className="flex justify-between">
                         <span className="font-body-sm text-text-tertiary text-xs">Log Lines</span>
-                        <span className="font-mono-sm text-text-primary text-xs">{logs.length}</span>
+                        <span className="font-mono-sm text-text-primary text-xs">{displayLogs.length}</span>
                       </div>
                     </div>
                   </motion.div>
