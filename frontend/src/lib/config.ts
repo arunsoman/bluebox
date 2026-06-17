@@ -5,6 +5,8 @@
  * In production (Netlify):   uses build-time env vars set in Netlify dashboard
  *
  * All env vars exposed to the browser must be prefixed with VITE_.
+ *
+ * DEFAULT MODE: LIVE (connects to real backend unless VITE_LIVE_API=false)
  */
 
 // API base URL — points to the backend
@@ -26,12 +28,13 @@ export const WS_URL = `${WS_BASE_URL}/ws`;
 export const APP_NAME = 'Bluebox — Collaborative Steering Pipeline';
 export const APP_VERSION = '1.0.0';
 
-// Feature flags (set via env to enable/disable features)
+// Feature flags — DEFAULT TO LIVE unless explicitly disabled
+// Set VITE_LIVE_API=false in .env to use mock data
 export const FEATURES = {
-  // Enable real WebSocket connection (false = use mock data)
-  liveWebSocket: import.meta.env.VITE_LIVE_WS === 'true',
-  // Enable real API calls (false = use mock data)
-  liveApi: import.meta.env.VITE_LIVE_API === 'true',
+  // Enable real API calls (default: true — use mock only if explicitly set to 'false')
+  liveApi: import.meta.env.VITE_LIVE_API !== 'false',
+  // Enable real WebSocket connection (default: true)
+  liveWebSocket: import.meta.env.VITE_LIVE_WS !== 'false',
   // Show debug panels
   debug: import.meta.env.VITE_DEBUG === 'true',
 };

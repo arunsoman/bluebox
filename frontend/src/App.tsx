@@ -7,6 +7,7 @@ import Visualizer from '@/pages/Visualizer'
 import Chat from '@/pages/Chat'
 import Blueprint from '@/pages/Blueprint'
 import Audit from '@/pages/Audit'
+import Settings from '@/pages/Settings'
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="chat" element={<Chat />} />
         <Route path="blueprint" element={<Blueprint />} />
         <Route path="audit" element={<Audit />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   )

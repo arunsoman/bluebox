@@ -11,6 +11,7 @@ import {
   ScrollText,
   ChevronLeft,
   ChevronRight,
+  Settings,
 } from 'lucide-react';
 import LogoIcon from './icons/LogoIcon';
 
@@ -22,6 +23,10 @@ const navItems = [
   { to: '/chat', icon: MessageSquare, label: 'Chat' },
   { to: '/blueprint', icon: FileCode, label: 'Blueprint' },
   { to: '/audit', icon: ScrollText, label: 'Audit Trail' },
+];
+
+const bottomNavItems = [
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function Sidebar() {
@@ -88,6 +93,42 @@ export default function Sidebar() {
             </NavLink>
         ))}
       </nav>
+
+      {/* Bottom nav — Settings */}
+      <div className="mt-auto flex-shrink-0">
+        {bottomNavItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `group relative flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg transition-all duration-200 font-body-md ${
+                isActive
+                  ? 'text-[#00F5FF] glass-tinted border-l-[3px] border-l-[#00F5FF]'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.03]'
+              }`
+            }
+          >
+            <item.icon size={18} className="flex-shrink-0" />
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.span
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  className="font-heading-sm text-sm whitespace-nowrap overflow-hidden"
+                >
+                  {item.label}
+                </motion.span>
+              )}
+            </AnimatePresence>
+            {collapsed && (
+              <div className="absolute left-full ml-2 px-2.5 py-1.5 glass-elevated rounded-md text-xs font-body-sm text-text-primary whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                {item.label}
+              </div>
+            )}
+          </NavLink>
+        ))}
+      </div>
 
       {/* Collapse toggle */}
       <div className="p-2 border-t border-[rgba(138,180,230,0.08)] flex-shrink-0">

@@ -70,3 +70,66 @@ async def list_checkpoints(project_id: str):
 async def abort_session(session_id: str):
     """Abort session."""
     return {"session_id": session_id, "aborted": True}
+
+
+# ─── LLM Providers & Models ───
+
+@router.get("/providers")
+async def list_providers():
+    """List all LLM providers with their models and key status."""
+    from app.llm.providers import get_available_providers
+    return {"providers": get_available_providers()}
+
+
+@router.get("/models")
+async def list_active_models():
+    """List models from providers that have keys configured."""
+    from app.llm.providers import get_active_models
+    return {"models": get_active_models()}
+
+
+@router.post("/providers/{provider_name}/key")
+async def set_provider_key(provider_name: str, body: dict):
+    """Set API key for a provider at runtime."""
+    from app.llm.providers import set_provider_key as _set_key
+    api_key = body.get("api_key", "")
+    success = _set_key(provider_name, api_key)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Invalid provider '{provider_name}' or empty key")
+    return {"provider": provider_name, "key_set": True}
+
+
+@router.get("/models/{model_id}/config")
+async def get_model_configuration(model_id: str):
+    """Get configuration for a specific model."""
+    from app.llm.providers import get_model_config
+    config = get_model_config(model_id)
+    if not config:
+        raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found")
+    return config
+
+
+@router.get("/nodes")
+async def list_nodes(
+    node_type: str | None = None,
+    search: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """List pipeline nodes (actors, capabilities, use_cases, stories, tasks).
+
+    Query params:
+        node_type: Filter by type (actor, capability, use_case, story, task)
+        search: Search in name/description
+        limit: Max results (default 100)
+        offset: Pagination offset (default 0)
+    """
+    # Return empty list — backend implementation would query DB
+    # This is the contract the frontend expects
+    return {
+        "nodes": [],
+        "total": 0,
+        "limit": limit,
+        "offset": offset,
+        "node_type": node_type,
+    }

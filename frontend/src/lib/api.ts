@@ -268,3 +268,82 @@ export async function abortSession(sessionId: string): Promise<void> {
   }
   await apiFetch(`/session/${sessionId}/abort`, { method: 'POST' });
 }
+
+/* ─── LLM Providers & Models ─── */
+
+export interface ProviderInfo {
+  name: string;
+  display_name: string;
+  has_key: boolean;
+  requires_key: boolean;
+  key_env_var: string;
+  docs_url: string;
+  models: ModelOption[];
+}
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  description: string;
+  max_tokens: number;
+  supports_streaming: boolean;
+  supports_functions: boolean;
+  cost_per_1k_input: string | null;
+  cost_per_1k_output: string | null;
+}
+
+/** List all providers with their models */
+export async function listProviders(): Promise<{ providers: ProviderInfo[] }> {
+  return apiFetch('/providers');
+}
+
+/** List active models (from providers with keys) */
+export async function listActiveModels(): Promise<{ models: (ModelOption & { provider: string; provider_display: string })[] }> {
+  return apiFetch('/models');
+}
+
+/** Set provider API key */
+export async function setProviderKey(providerName: string, apiKey: string): Promise<{ provider: string; key_set: boolean }> {
+  return apiFetch(`/providers/${providerName}/key`, {
+    method: 'POST',
+    body: JSON.stringify({ api_key: apiKey }),
+  });
+}
+
+/** Get model config */
+export async function getModelConfig(modelId: string): Promise<object> {
+  return apiFetch(`/models/${modelId}/config`);
+}
+
+/* ─── Nodes ─── */
+
+export interface PipelineNode {
+  id: string;
+  type: 'actor' | 'capability' | 'use_case' | 'user_story' | 'engineering_task';
+  name: string;
+  description: string;
+  state: string;
+  [key: string]: unknown;
+}
+
+export interface NodesResponse {
+  nodes: PipelineNode[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** List pipeline nodes */
+export async function listNodes(
+  nodeType?: string,
+  search?: string,
+  limit = 100,
+  offset = 0
+): Promise<NodesResponse> {
+  const params = new URLSearchParams();
+  if (nodeType) params.set('node_type', nodeType);
+  if (search) params.set('search', search);
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+  return apiFetch(`/nodes?${params.toString()}`);
+}
