@@ -394,12 +394,15 @@ export default function Studio() {
     };
   }, [isLive, sessionId]);
 
-  /* -- Display logs: real WebSocket OR mock simulator -- */
-  const displayLogs = isLive ? wsLogs : simLogs;
-  const displayIsRunning = isLive ? wsIsRunning : simIsRunning;
-  const displayIsPaused = isLive ? false : simIsPaused;
-  const displayProgress = isLive ? wsProgress : simProgress;
-  const displayCurrentStage = isLive ? (wsCurrentStage ?? 0) : simStage;
+  /* -- Display logs: real WebSocket OR mock simulator --
+     NEVER show fake mock data when a real PRD is active */
+  const hasRealPRD = hasActivePRD && sessionId && !sessionId.startsWith('local-');
+  const useMockFallback = !isLive && !hasRealPRD;
+  const displayLogs = isLive ? wsLogs : (useMockFallback ? simLogs : []);
+  const displayIsRunning = isLive ? wsIsRunning : (useMockFallback ? simIsRunning : false);
+  const displayIsPaused = isLive ? false : (useMockFallback ? simIsPaused : false);
+  const displayProgress = isLive ? wsProgress : (useMockFallback ? simProgress : 0);
+  const displayCurrentStage = isLive ? (wsCurrentStage ?? 0) : (useMockFallback ? simStage : 0);
 
   /* -- Auto-scroll terminal -- */
   useEffect(() => {
@@ -751,9 +754,21 @@ export default function Studio() {
               {displayLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <Terminal className="w-8 h-8 text-[#4A6487] mb-2" />
-                  <p className="font-body-md text-text-tertiary">
-                    {hasActivePRD ? 'Pipeline initialized — click Start to begin' : 'Submit a PRD on the Dashboard first'}
-                  </p>
+                  {hasRealPRD && !isLive ? (
+                    <>
+                      <p className="font-body-md text-[#FFB800] mb-2">
+                        Backend not connected
+                      </p>
+                      <p className="font-body-sm text-text-tertiary max-w-xs">
+                        Your PRD was submitted but the backend server is not reachable.
+                        Start the backend at <code className="text-[#00F5FF]">localhost:8000</code> to run the real pipeline.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="font-body-md text-text-tertiary">
+                      {hasActivePRD ? 'Pipeline initialized — click Start to begin' : 'Submit a PRD on the Dashboard first'}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <AnimatePresence initial={false}>
