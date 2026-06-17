@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText,
@@ -66,13 +66,17 @@ export default function PRDInput({ onSubmit, classifyPRD }: PRDInputProps) {
   /* ── real-time classification (debounced) ── */
   const debouncedClassify = useCallback(
     (value: string) => {
-      if (classifyTimer.current) clearTimeout(classifyTimer.current);
+      if (classifyTimer.current) {
+        clearTimeout(classifyTimer.current);
+        classifyTimer.current = null;
+      }
       if (value.trim().length < 5) {
         setClassification(null);
         return;
       }
       classifyTimer.current = setTimeout(() => {
         setClassification(classifyPRD(value));
+        classifyTimer.current = null;
       }, 400);
     },
     [classifyPRD]
@@ -129,12 +133,13 @@ export default function PRDInput({ onSubmit, classifyPRD }: PRDInputProps) {
 
   /* ── submit ── */
   const handleSubmit = () => {
-    if (!text.trim()) return;
+    if (!text.trim() || isSubmitting) return;
     setIsSubmitting(true);
-    setTimeout(() => {
+    // Small delay to show the loading state, then submit
+    requestAnimationFrame(() => {
       onSubmit(text);
-      setIsSubmitting(false);
-    }, 600);
+      // Component will unmount after store update — no need to reset isSubmitting
+    });
   };
 
   /* ── sample PRDs ── */
@@ -155,6 +160,16 @@ export default function PRDInput({ onSubmit, classifyPRD }: PRDInputProps) {
       text: `A weather prediction app that uses AI to provide hyper-local forecasts for farmers.`,
     },
   ];
+
+  /* ── cleanup timer on unmount ── */
+  useEffect(() => {
+    return () => {
+      if (classifyTimer.current) {
+        clearTimeout(classifyTimer.current);
+        classifyTimer.current = null;
+      }
+    };
+  }, []);
 
   const currentConfig = classification ? CLASSIFICATION_CONFIG[classification.category] : null;
 
