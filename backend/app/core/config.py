@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     DEFAULT_AUDIT_BUDGET_MB: int = 100
     AUDIT_RETENTION_DAYS: int = 90
 
+    # CORS — comma-separated list of allowed origins, or * for all
+    CORS_ORIGINS: str = "*"
+
+    # Frontend URL (for redirects, links, CORS)
+    FRONTEND_URL: str = "http://localhost:5173"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
