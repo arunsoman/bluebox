@@ -54,12 +54,18 @@ def create_minimal_app():
         allow_headers=["*"],
     )
 
-    # Import provider management
+    # Import provider management and pipeline
     from app.llm.providers import (
         get_available_providers,
         get_active_models,
         set_provider_key,
         get_model_config,
+    )
+    from app.pipeline.executor import (
+        create_executor,
+        get_executor,
+        remove_executor,
+        PipelineEvent,
     )
 
     # ─── Health ───
@@ -258,23 +264,125 @@ def create_minimal_app():
             "offset": offset,
         }
 
-    # ─── WebSocket ───
+    # ─── WebSocket — Real-time Pipeline Streaming ───
     @app.websocket("/ws/steering/{session_id}")
-    async def steering_websocket(websocket):
+    async def steering_websocket(websocket, session_id: str):
         await websocket.accept()
+        logger.info(f"WebSocket connected for session: {session_id}")
+
         try:
+            # Get session data
+            session = sessions.get(session_id, {})
+            prd_text = session.get("prd_text", "")
+
+            if not prd_text:
+                await websocket.send_json({
+                    "event": "ERROR",
+                    "data": {"message": "No PRD found for this session. Submit a PRD first."},
+                })
+                return
+
+            # Send ready signal
             await websocket.send_json({
                 "event": "STEERING_PANEL_READY",
-                "data": {"stage_id": 0, "status": "initialized"},
+                "data": {"stage_id": 0, "status": "initialized", "has_prd": True},
             })
-            while True:
-                msg = await websocket.receive_json()
+
+            # Wait for START command from client
+            start_received = False
+            try:
+                msg = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
+                if msg.get("event") == "START_PIPELINE":
+                    start_received = True
+            except asyncio.TimeoutError:
                 await websocket.send_json({
-                    "event": "ACK",
-                    "received": msg.get("event"),
+                    "event": "ERROR",
+                    "data": {"message": "Timeout waiting for START command"},
                 })
-        except Exception:
-            pass
+                return
+
+            if not start_received:
+                return
+
+            # Create pipeline executor
+            pid = session.get("project_id", str(uuid4()))
+            executor = create_executor(session_id, pid, prd_text)
+
+            # Update session state
+            session["state"] = "running"
+            session["current_stage"] = 0
+
+            # Stream pipeline events
+            async for event in executor.run():
+                # Convert PipelineEvent to WebSocket message
+                ws_msg = {
+                    "event": event.event_type,
+                    "stage_id": event.stage_id,
+                    "data": event.data,
+                }
+
+                if event.event_type == "stage_start":
+                    ws_msg["event"] = "CHUNK_STREAM"
+                    ws_msg["data"] = {
+                        "type": "stage_start",
+                        "message": event.data.get("message", ""),
+                        "stage_id": event.stage_id,
+                    }
+
+                elif event.event_type == "stage_chunk":
+                    ws_msg["event"] = "CHUNK_STREAM"
+                    ws_msg["data"] = {
+                        "type": "chunk",
+                        **event.data,
+                    }
+
+                elif event.event_type == "stage_complete":
+                    ws_msg["event"] = "STEERING_PANEL_READY"
+                    ws_msg["data"] = {
+                        "type": "stage_complete",
+                        "stage_id": event.stage_id,
+                        **event.data,
+                    }
+                    # Update session
+                    session["current_stage"] = event.stage_id + 1
+
+                elif event.event_type == "steering_required":
+                    ws_msg["event"] = "STEERING_REQUIRED"
+                    ws_msg["data"] = event.data
+                    session["state"] = "awaiting_steering"
+
+                elif event.event_type == "error":
+                    ws_msg["event"] = "ERROR"
+                    ws_msg["data"] = event.data
+                    session["state"] = "failed"
+
+                await websocket.send_json(ws_msg)
+
+            # Pipeline complete
+            session["state"] = "completed"
+            await websocket.send_json({
+                "event": "STEERING_PANEL_READY",
+                "data": {
+                    "type": "pipeline_complete",
+                    "message": "Pipeline complete — Blueprint assembled",
+                    "project_id": pid,
+                },
+            })
+
+        except Exception as e:
+            logger.error(f"WebSocket error for {session_id}: {e}")
+            try:
+                await websocket.send_json({
+                    "event": "ERROR",
+                    "data": {"message": str(e)},
+                })
+            except Exception:
+                pass
+        finally:
+            logger.info(f"WebSocket closed for session: {session_id}")
+            # Clean up executor after a delay
+            await asyncio.sleep(60)
+            remove_executor(session_id)
 
     logger.info("FastAPI app created with all endpoints")
     return app

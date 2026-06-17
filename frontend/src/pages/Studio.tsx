@@ -24,6 +24,7 @@ import StatusBadge from '@/components/StatusBadge';
 import GlassButton from '@/components/GlassButton';
 import type { StatusType } from '@/components/StatusBadge';
 import { usePipelineStore } from '@/store/usePipelineStore';
+import { useWebSocketStore } from '@/store/useWebSocketStore';
 import { useStreamingSimulator } from '@/hooks/useStreamingSimulator';
 import type { SteeringMode, PipelineRunState } from '@/types/studio';
 
@@ -289,23 +290,29 @@ export default function Studio() {
   const sessionId = usePipelineStore((s) => s.sessionId);
   const hasActivePRD = usePipelineStore((s) => s.hasActivePRD);
 
+  /* -- WebSocket logs (REAL data from backend) -- */
+  const wsLogs = useWebSocketStore((s) => s.logs);
+  const wsIsRunning = useWebSocketStore((s) => s.isRunning);
+  const wsProgress = useWebSocketStore((s) => s.progress);
+  const wsCurrentStage = useWebSocketStore((s) => s.currentStage);
+
   /* -- Streaming simulator (MOCK fallback) -- */
   const {
-    logs,
-    isRunning,
-    isPaused,
+    logs: simLogs,
+    isRunning: simIsRunning,
+    isPaused: simIsPaused,
     currentStage: simStage,
-    progress,
-    start,
-    pause,
-    resume,
+    progress: simProgress,
+    start: simStart,
+    pause: simPause,
+    resume: simResume,
     stop,
     clear,
   } = useStreamingSimulator();
 
   /* -- Backend connection -- */
   const [isLive, setIsLive] = useState(false);
-  const [backendLogs, setBackendLogs] = useState<{ id: string; timestamp: string; stageId: number; severity: string; message: string }[]>([]);
+  const [, setBackendLogs] = useState<{ id: string; timestamp: string; stageId: number; severity: string; message: string }[]>([]);
 
   /* -- Local state -- */
   const [selectedStage, setSelectedStage] = useState<number>(0);
@@ -326,13 +333,18 @@ export default function Studio() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  /* -- Detect live vs mock mode -- */
+  /* -- Detect live vs mock mode + connect WebSocket -- */
   useEffect(() => {
     if (sessionId && !sessionId.startsWith('local-')) {
       setIsLive(true);
+      // Connect to WebSocket for real pipeline streaming
+      useWebSocketStore.getState().connect(sessionId);
     } else {
       setIsLive(false);
     }
+    return () => {
+      useWebSocketStore.getState().disconnect();
+    };
   }, [sessionId]);
 
   /* -- WebSocket connection for live mode -- */
@@ -382,8 +394,12 @@ export default function Studio() {
     };
   }, [isLive, sessionId]);
 
-  /* -- Display logs: live backend logs OR mock simulator logs -- */
-  const displayLogs = isLive ? backendLogs : logs;
+  /* -- Display logs: real WebSocket OR mock simulator -- */
+  const displayLogs = isLive ? wsLogs : simLogs;
+  const displayIsRunning = isLive ? wsIsRunning : simIsRunning;
+  const displayIsPaused = isLive ? false : simIsPaused;
+  const displayProgress = isLive ? wsProgress : simProgress;
+  const displayCurrentStage = isLive ? (wsCurrentStage ?? 0) : simStage;
 
   /* -- Auto-scroll terminal -- */
   useEffect(() => {
@@ -394,7 +410,7 @@ export default function Studio() {
 
   /* -- Elapsed timer -- */
   useEffect(() => {
-    if (isRunning) {
+    if (displayIsRunning) {
       timerRef.current = setInterval(() => {
         setElapsed((e) => e + 1);
       }, 1000);
@@ -410,43 +426,41 @@ export default function Studio() {
         timerRef.current = null;
       }
     };
-  }, [isRunning]);
+  }, [displayIsRunning]);
 
-  /* -- Sync run state with simulator -- */
+  /* -- Sync run state -- */
   useEffect(() => {
-    if (isRunning) setRunState('running');
-    else if (isPaused) setRunState('paused');
-  }, [isRunning, isPaused]);
+    if (displayIsRunning) setRunState('running');
+    else setRunState('idle');
+  }, [displayIsRunning]);
 
-  /* -- Update pipeline store stage status based on simulator -- */
+  /* -- Update stage status from real or mock pipeline -- */
   useEffect(() => {
     stages.forEach((s) => {
-      if (s.id < simStage) {
+      if (s.id < displayCurrentStage) {
         setStageStatus(s.id, 'completed', 100);
-      } else if (s.id === simStage && isRunning) {
-        setStageStatus(s.id, 'running', progress);
-      } else if (s.id === simStage && !isRunning && runState === 'idle') {
-        setStageStatus(s.id, 'idle', 0);
+      } else if (s.id === displayCurrentStage && displayIsRunning) {
+        setStageStatus(s.id, 'running', displayProgress);
       }
     });
-  }, [simStage, isRunning, progress, stages.length]);
+  }, [displayCurrentStage, displayIsRunning, displayProgress, stages.length]);
 
   /* -- Handlers -- */
   const handleStart = useCallback(() => {
     setElapsed(0);
     setRunState('running');
-    start();
-  }, [start]);
+    simStart();
+  }, [simStart]);
 
   const handlePause = useCallback(() => {
-    pause();
+    simPause();
     setRunState('paused');
-  }, [pause]);
+  }, [simPause]);
 
   const handleResume = useCallback(() => {
-    resume();
+    simResume();
     setRunState('running');
-  }, [resume]);
+  }, [simResume]);
 
   const handleStop = useCallback(() => {
     stop();
@@ -459,7 +473,7 @@ export default function Studio() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }, [logs]);
+  }, [displayLogs]);
 
   const handleSendChat = useCallback(() => {
     if (!chatInput.trim()) return;
@@ -470,11 +484,11 @@ export default function Studio() {
         ...prev,
         {
           role: 'assistant',
-          content: `Acknowledged. Processing your input for Stage ${simStage}: ${STAGE_NAMES[simStage]}. I'll incorporate this into the pipeline execution.`,
+          content: `Acknowledged. Processing your input for Stage ${displayCurrentStage}: ${STAGE_NAMES[displayCurrentStage]}. I'll incorporate this into the pipeline execution.`,
         },
       ]);
     }, 600);
-  }, [chatInput, simStage]);
+  }, [chatInput, displayCurrentStage]);
 
   const handleSendSteering = useCallback(() => {
     if (!steeringText.trim()) return;
@@ -499,7 +513,7 @@ export default function Studio() {
       ? 'paused'
       : runState === 'stopped'
       ? 'failed'
-      : simStage > 0 && simStage >= 7
+      : displayCurrentStage > 0 && displayCurrentStage >= 7
       ? 'completed'
       : 'idle';
 
@@ -514,9 +528,9 @@ export default function Studio() {
       >
         <div className="flex items-center gap-3">
           <h1 className="font-display-md text-text-primary">Pipeline Studio</h1>
-          {isRunning && (
+          {displayIsRunning && (
             <span className="font-body-md text-text-secondary">
-              — {STAGE_NAMES[simStage]}
+              — {STAGE_NAMES[displayCurrentStage]}
             </span>
           )}
           {/* Live / Mock mode indicator */}
@@ -547,7 +561,7 @@ export default function Studio() {
             variant="primary"
             icon={<Play className="w-4 h-4" />}
             onClick={runState === 'paused' ? handleResume : handleStart}
-            disabled={isRunning}
+            disabled={displayIsRunning}
             size="sm"
           >
             {runState === 'paused' ? 'Resume' : 'Start'}
@@ -557,7 +571,7 @@ export default function Studio() {
             variant="secondary"
             icon={<Pause className="w-4 h-4" />}
             onClick={handlePause}
-            disabled={!isRunning}
+            disabled={!displayIsRunning}
             size="sm"
           >
             Pause
@@ -599,8 +613,8 @@ export default function Studio() {
                       className="absolute left-[22px] -top-1 w-[2px] h-3"
                       style={{
                         backgroundColor:
-                          stage.id <= simStage
-                            ? stage.id === simStage
+                          stage.id <= displayCurrentStage
+                            ? stage.id === displayCurrentStage
                               ? '#00F5FF'
                               : '#39FF14'
                             : '#0F2847',
@@ -611,7 +625,7 @@ export default function Studio() {
                     stageId={stage.id}
                     name={stage.name}
                     status={stage.status}
-                    isActive={stage.id === simStage && isRunning}
+                    isActive={stage.id === displayCurrentStage && displayIsRunning}
                     isSelected={selectedStage === stage.id}
                     progress={stage.progress}
                     onClick={() => setSelectedStage(stage.id)}
@@ -634,7 +648,7 @@ export default function Studio() {
             <div className="flex-shrink-0 h-10 flex items-center justify-between px-4 border-b border-[rgba(138,180,230,0.08)]">
               <div className="flex items-center gap-2">
                 <span className="font-heading-sm text-text-primary text-sm">Live Terminal</span>
-                {isRunning && (
+                {displayIsRunning && (
                   <motion.span
                     className="w-2 h-2 rounded-full bg-[#00F5FF]"
                     animate={{
@@ -651,7 +665,7 @@ export default function Studio() {
 
               <div className="flex items-center gap-1">
                 {/* Interrupt button */}
-                {isRunning && (
+                {displayIsRunning && (
                   <motion.button
                     className="flex items-center gap-1 px-3 py-1 rounded-md text-xs font-heading-sm bg-[rgba(255,51,102,0.15)] text-[#FF3366] border border-[rgba(255,51,102,0.3)] hover:bg-[rgba(255,51,102,0.25)] transition-all"
                     onClick={handleStop}
@@ -718,13 +732,13 @@ export default function Studio() {
                 <GlassButton
                   variant="ghost"
                   size="sm"
-                  icon={isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                  onClick={isPaused ? handleResume : handlePause}
+                  icon={displayIsPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                  onClick={displayIsPaused ? handleResume : handlePause}
                   disabled={runState === 'idle'}
                   className="text-xs px-2 py-1"
-                  title={isPaused ? 'Resume' : 'Pause'}
+                  title={displayIsPaused ? 'Resume' : 'Pause'}
                 >
-                  {isPaused ? 'Resume' : 'Pause'}
+                  {displayIsPaused ? 'Resume' : 'Pause'}
                 </GlassButton>
               </div>
             </div>
@@ -754,7 +768,7 @@ export default function Studio() {
               )}
 
               {/* Typing cursor when running */}
-              {isRunning && (
+              {displayIsRunning && (
                 <motion.span
                   className="inline-block w-2 h-4 bg-[#00F5FF] ml-2 align-middle"
                   animate={{ opacity: [1, 0, 1] }}
@@ -839,7 +853,7 @@ export default function Studio() {
                       <span className="font-body-sm text-text-tertiary block mb-1">Current Stage</span>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-heading-md text-text-primary text-base">
-                          {STAGE_NAMES[simStage]}
+                          {STAGE_NAMES[displayCurrentStage]}
                         </span>
                         <StatusBadge
                           status={overallStatus}
@@ -847,10 +861,10 @@ export default function Studio() {
                         />
                       </div>
                       <p className="font-body-sm text-text-secondary text-xs">
-                        {STAGE_DESCRIPTIONS[simStage]}
+                        {STAGE_DESCRIPTIONS[displayCurrentStage]}
                       </p>
                       <div className="mt-2 font-mono-sm text-text-tertiary text-xs">
-                        Stage {simStage} of 8
+                        Stage {displayCurrentStage} of 8
                       </div>
                     </div>
 
@@ -868,18 +882,18 @@ export default function Studio() {
                               className="h-full rounded-full"
                               style={{
                                 backgroundColor:
-                                  s.id < simStage
+                                  s.id < displayCurrentStage
                                     ? '#39FF14'
-                                    : s.id === simStage
+                                    : s.id === displayCurrentStage
                                     ? '#00F5FF'
                                     : 'transparent',
                               }}
                               initial={false}
                               animate={{
-                                opacity: s.id === simStage ? [0.6, 1, 0.6] : 1,
+                                opacity: s.id === displayCurrentStage ? [0.6, 1, 0.6] : 1,
                               }}
                               transition={
-                                s.id === simStage
+                                s.id === displayCurrentStage
                                   ? { duration: 1.5, repeat: Infinity }
                                   : undefined
                               }
@@ -888,7 +902,7 @@ export default function Studio() {
                         ))}
                       </div>
                       <div className="mt-2 font-mono-sm text-text-glow text-xs">
-                        {progress}%
+                        {displayProgress}%
                       </div>
                     </div>
 
@@ -927,11 +941,11 @@ export default function Studio() {
                       <div className="flex items-center gap-2 mb-2">
                         <AlertTriangle className="w-5 h-5 text-[#FFB800]" />
                         <span className="font-heading-md text-[#FFB800] text-sm">
-                          Input needed at Stage {simStage}
+                          Input needed at Stage {displayCurrentStage}
                         </span>
                       </div>
                       <p className="font-body-md text-text-primary text-xs mb-2">
-                        The system detected ambiguity in {STAGE_NAMES[simStage].toLowerCase()}. 
+                        The system detected ambiguity in {STAGE_NAMES[displayCurrentStage].toLowerCase()}.
                         Your guidance will help resolve the uncertainty.
                       </p>
                       <div className="font-mono-sm text-[#FFB800] text-xs">
@@ -943,7 +957,7 @@ export default function Studio() {
                     <div className="glass-frosted rounded-lg p-3">
                       <span className="font-body-sm text-text-tertiary block mb-1 text-xs">Context</span>
                       <div className="font-mono-sm text-text-secondary text-[10px] space-y-0.5 max-h-24 overflow-y-auto scrollbar-thin">
-                        <p>&gt; Processing {STAGE_NAMES[simStage].toLowerCase()}...</p>
+                        <p>&gt; Processing {STAGE_NAMES[displayCurrentStage].toLowerCase()}...</p>
                         <p>&gt; Ambiguity detected in node_data</p>
                         <p>&gt; Awaiting human input</p>
                       </div>
@@ -1092,11 +1106,11 @@ export default function Studio() {
                       <div className="flex items-center gap-2 mb-2">
                         <Check className="w-5 h-5 text-[#39FF14]" />
                         <span className="font-heading-md text-[#39FF14] text-sm">
-                          Stage {simStage} Complete
+                          Stage {displayCurrentStage} Complete
                         </span>
                       </div>
                       <p className="font-body-md text-text-primary text-xs mb-2">
-                        {STAGE_NAMES[simStage]} completed successfully.
+                        {STAGE_NAMES[displayCurrentStage]} completed successfully.
                       </p>
                       <div className="font-mono-sm text-text-secondary text-xs">
                         Generated outputs ready for review.
@@ -1234,22 +1248,22 @@ export default function Studio() {
         <div className="flex items-center gap-1">
           <motion.span
             className="font-mono-lg text-text-glow"
-            key={progress}
+            key={displayProgress}
             initial={{ opacity: 0.5, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
           >
-            {progress}%
+            {displayProgress}%
           </motion.span>
         </div>
 
         {/* Stage counter */}
         <div className="flex flex-col">
           <span className="font-body-sm text-text-secondary text-xs">
-            Stage {Math.min(simStage + 1, 8)} of 8
+            Stage {Math.min(displayCurrentStage + 1, 8)} of 8
           </span>
           <span className="font-mono-sm text-text-tertiary text-[10px]">
-            {STAGE_NAMES[simStage]}
+            {STAGE_NAMES[displayCurrentStage]}
           </span>
         </div>
 
@@ -1258,8 +1272,8 @@ export default function Studio() {
           <span className="font-mono-sm text-text-tertiary text-xs">Elapsed</span>
           <motion.span
             className="font-mono-md text-text-primary text-sm tabular-nums"
-            animate={{ opacity: isRunning ? [1, 0.7, 1] : 1 }}
-            transition={isRunning ? { duration: 1, repeat: Infinity } : undefined}
+            animate={{ opacity: displayIsRunning ? [1, 0.7, 1] : 1 }}
+            transition={displayIsRunning ? { duration: 1, repeat: Infinity } : undefined}
           >
             {formatElapsed(elapsed)}
           </motion.span>
