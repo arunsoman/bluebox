@@ -2,7 +2,7 @@
 
 Implements every endpoint from Architecture Section 10.1.
 All endpoints delegate to application services (no mock/stub data).
-Uses FastAPI dependency injection for DB sessions and auth.
+Uses FastAPI dependency injection for DB sessions.
 """
 from __future__ import annotations
 

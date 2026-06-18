@@ -1,68 +1,7 @@
 // =============================================================================
-<<<<<<< HEAD
-// RBACPage — Role-Based Access Control model viewer
-// =============================================================================
-
-import { useState } from 'react';
-import { useParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
-import {
-  Shield,
-  Users,
-  Lock,
-  Database,
-  ChevronRight,
-  ChevronDown,
-  AlertCircle,
-  Loader2,
-} from 'lucide-react';
-import { pipelineApi } from '@/lib/api';
-import type { RBACModel, Role, RolePermissionEntry, DataAccessEntry } from '@/types/domain';
-
-// ── Accordion sub-components ─────────────────────────────────────────────────
-
-function RoleSection({ role, isOpen, onToggle }: { role: Role; isOpen: boolean; onToggle: () => void }) {
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900">
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-800"
-      >
-        {isOpen ? (
-          <ChevronDown className="h-4 w-4 text-slate-500" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-slate-500" />
-        )}
-        <Users className="h-4 w-4 text-blue-400" />
-        <span className="flex-1 text-sm font-medium text-white">{role.name}</span>
-        {role.inherited_role_ids.length > 0 && (
-          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
-            {role.inherited_role_ids.length} inherited
-          </span>
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="space-y-3 border-t border-slate-700 px-4 py-3">
-          <p className="text-xs text-slate-400">{role.description}</p>
-
-          {role.inherited_role_ids.length > 0 && (
-            <div className="text-xs text-slate-500">
-              Inherited from: {role.inherited_role_ids.join(', ')}
-            </div>
-          )}
-
-          {role.actor_ids.length > 0 && (
-            <div className="text-xs text-slate-500">
-              Linked actors: {role.actor_ids.join(', ')}
-            </div>
-          )}
-        </div>
-      )}
-=======
 // RBACPage — Full RBAC matrix view page (replaces stub)
 // URL: /pipeline/:sessionId/rbac
-// Steps: 1.Role Mgmt  2.Permission Matrix  3.Data Access  4.Hierarchy+Validation
+// Steps: 1.Role Mgmt  2.Permission Matrix  3.Data Access  4.Hierarchy+Validation  5.Audit Policy
 // Data from: steeringStore.rbacModel + pipelineApi.getRbac(sessionId)
 // =============================================================================
 
@@ -99,284 +38,20 @@ function StepBadge({ step, label, active }: { step: number; label: string; activ
         {step}
       </span>
       {label}
->>>>>>> final-build
     </div>
   );
 }
 
-<<<<<<< HEAD
-function PermissionMatrixSection({
-  entries,
-  isOpen,
-  onToggle,
-}: {
-  entries: RolePermissionEntry[];
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900">
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-800"
-      >
-        {isOpen ? (
-          <ChevronDown className="h-4 w-4 text-slate-500" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-slate-500" />
-        )}
-        <Lock className="h-4 w-4 text-amber-400" />
-        <span className="flex-1 text-sm font-medium text-white">Permission Matrix</span>
-        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
-          {entries.length} entries
-        </span>
-      </button>
-
-      {isOpen && (
-        <div className="border-t border-slate-700">
-          {entries.length === 0 ? (
-            <p className="px-4 py-3 text-xs text-slate-500">No permission entries.</p>
-          ) : (
-            <div className="max-h-96 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-slate-800">
-                  <tr className="text-left text-slate-400">
-                    <th className="px-4 py-2 font-medium">Role</th>
-                    <th className="px-4 py-2 font-medium">Permission</th>
-                    <th className="px-4 py-2 font-medium">Granted</th>
-                    <th className="px-4 py-2 font-medium">Decision</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.map((entry) => (
-                    <tr
-                      key={`${entry.role_id}-${entry.permission_id}`}
-                      className="border-t border-slate-700/50"
-                    >
-                      <td className="px-4 py-2 text-slate-300">{entry.role_id}</td>
-                      <td className="px-4 py-2 text-slate-300">{entry.permission_label}</td>
-                      <td className="px-4 py-2">
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            entry.granted
-                              ? 'bg-emerald-900/50 text-emerald-400'
-                              : 'bg-red-900/50 text-red-400'
-                          }`}
-                        >
-                          {entry.granted ? 'Yes' : 'No'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-slate-500">{entry.decision_maker}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-=======
 // ── Empty state ──────────────────────────────────────────────────────────────
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-700 py-12">
       <Shield className="mb-2 h-8 w-8 text-slate-600" />
       <p className="text-sm text-slate-500">{message}</p>
->>>>>>> final-build
     </div>
   );
 }
 
-<<<<<<< HEAD
-function DataAccessSection({
-  entries,
-  isOpen,
-  onToggle,
-}: {
-  entries: DataAccessEntry[];
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900">
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-800"
-      >
-        {isOpen ? (
-          <ChevronDown className="h-4 w-4 text-slate-500" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-slate-500" />
-        )}
-        <Database className="h-4 w-4 text-violet-400" />
-        <span className="flex-1 text-sm font-medium text-white">Data Access Matrix</span>
-        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
-          {entries.length} entries
-        </span>
-      </button>
-
-      {isOpen && (
-        <div className="border-t border-slate-700">
-          {entries.length === 0 ? (
-            <p className="px-4 py-3 text-xs text-slate-500">No data access entries.</p>
-          ) : (
-            <div className="max-h-96 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-slate-800">
-                  <tr className="text-left text-slate-400">
-                    <th className="px-4 py-2 font-medium">Role</th>
-                    <th className="px-4 py-2 font-medium">Entity</th>
-                    <th className="px-4 py-2 font-medium">Read</th>
-                    <th className="px-4 py-2 font-medium">Write</th>
-                    <th className="px-4 py-2 font-medium">Delete</th>
-                    <th className="px-4 py-2 font-medium">Export</th>
-                    <th className="px-4 py-2 font-medium">Scope</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.map((entry) => (
-                    <tr
-                      key={`${entry.role_id}-${entry.data_entity}`}
-                      className="border-t border-slate-700/50"
-                    >
-                      <td className="px-4 py-2 text-slate-300">{entry.role_id}</td>
-                      <td className="px-4 py-2 text-slate-300">{entry.data_entity}</td>
-                      <td className="px-4 py-2">
-                        <BooleanBadge value={entry.read} />
-                      </td>
-                      <td className="px-4 py-2">
-                        <BooleanBadge value={entry.write} />
-                      </td>
-                      <td className="px-4 py-2">
-                        <BooleanBadge value={entry.delete} />
-                      </td>
-                      <td className="px-4 py-2">
-                        <BooleanBadge value={entry.export} />
-                      </td>
-                      <td className="px-4 py-2 text-slate-500">{entry.scope}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BooleanBadge({ value }: { value: boolean }) {
-  return (
-    <span
-      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
-        value ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'
-      }`}
-    >
-      {value ? 'Yes' : 'No'}
-    </span>
-  );
-}
-
-// ── Main page component ──────────────────────────────────────────────────────
-
-export default function RBACPage() {
-  const { sessionId } = useParams<{ sessionId: string }>();
-
-  const {
-    data: rbac,
-    isLoading,
-    isError,
-  } = useQuery<RBACModel>({
-    queryKey: ['rbac', sessionId],
-    queryFn: () => pipelineApi.getRbac(sessionId!),
-    enabled: !!sessionId,
-  });
-
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    roles: true,
-    permissions: false,
-    dataAccess: false,
-  });
-
-  const toggle = (key: string) =>
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-
-  return (
-    <div className="flex h-full flex-col overflow-y-auto p-6">
-      <div className="mx-auto w-full max-w-5xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <Shield className="h-6 w-6 text-blue-400" />
-          <div>
-            <h1 className="text-xl font-bold text-white">RBAC Model</h1>
-            <p className="text-xs text-slate-500">Session: {sessionId}</p>
-          </div>
-        </div>
-
-        {isLoading && (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading RBAC model...
-          </div>
-        )}
-
-        {isError && (
-          <div className="flex items-center gap-2 rounded-md border border-red-800 bg-red-950/50 p-4 text-sm text-red-400">
-            <AlertCircle className="h-4 w-4" />
-            Failed to load RBAC model. Please try again.
-          </div>
-        )}
-
-        {rbac && (
-          <div className="space-y-4">
-            {/* Version & summary */}
-            <div className="flex items-center gap-4 text-xs text-slate-400">
-              <span>Version: {rbac.version}</span>
-              <span>Roles: {rbac.roles.length}</span>
-              <span>Permissions: {rbac.permissions.length}</span>
-              <span>Max inheritance depth: {rbac.max_inheritance_depth}</span>
-            </div>
-
-            {/* Roles */}
-            <div className="space-y-2">
-              <h2 className="text-sm font-semibold text-white">Roles</h2>
-              {rbac.roles.map((role) => (
-                <RoleSection
-                  key={role.role_id}
-                  role={role}
-                  isOpen={openSections.roles}
-                  onToggle={() => toggle('roles')}
-                />
-              ))}
-            </div>
-
-            {/* Permission Matrix */}
-            <PermissionMatrixSection
-              entries={rbac.permission_matrix}
-              isOpen={openSections.permissions}
-              onToggle={() => toggle('permissions')}
-            />
-
-            {/* Data Access Matrix */}
-            <DataAccessSection
-              entries={rbac.data_access_matrix}
-              isOpen={openSections.dataAccess}
-              onToggle={() => toggle('dataAccess')}
-            />
-
-            {/* Audit Policy */}
-            {rbac.audit_policy && (
-              <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-                <h2 className="mb-3 text-sm font-semibold text-white">Audit Policy</h2>
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
-                  <div>Retention: {rbac.audit_policy.retention_days} days</div>
-                  <div>Audit writes: {rbac.audit_policy.audit_all_writes ? 'Yes' : 'No'}</div>
-                  <div>Privilege alert: {rbac.audit_policy.alert_on_privilege_escalation ? 'Yes' : 'No'}</div>
-                  <div>Bulk export alert: {rbac.audit_policy.alert_on_bulk_export ? 'Yes' : 'No'}</div>
-                  <div>Immutable: {rbac.audit_policy.audit_log_immutable ? 'Yes' : 'No'}</div>
-                  <div>Storage: {rbac.audit_policy.storage_strategy}</div>
-=======
 // ═══════════════════════════════════════════════════════════════════════════════
 // STEP 1 — Role Management
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -529,14 +204,10 @@ function RoleManagement({ rbac, onRbacChange }: RoleManagementProps) {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
->>>>>>> final-build
                 </div>
               </div>
             )}
           </div>
-<<<<<<< HEAD
-        )}
-=======
         ))}
       </div>
 
@@ -1143,13 +814,10 @@ function AuditPolicySection({ policy, onPolicyChange }: AuditPolicySectionProps)
             Audit log immutable
           </Label>
         </div>
->>>>>>> final-build
       </div>
     </div>
   );
 }
-<<<<<<< HEAD
-=======
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN RBACPage
@@ -1313,4 +981,3 @@ export default function RBACPage() {
     </div>
   );
 }
->>>>>>> final-build
