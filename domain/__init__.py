@@ -33,7 +33,7 @@ from domain.models import (
     PermissionConflict, EscalationFlag, InheritanceCycle, UserOptionIncoherent,
     RevisionBudgetExhausted, SteeringRequired,
     # DTOs
-    StartPipelineRequest, PipelineSessionDTO, SubmitInputRequest, SteeringActionDTO,
+    StartPipelineRequest, PipelineSessionDTO, SessionSuspendDTO, SubmitInputRequest, SteeringActionDTO,
     RevisionRequestDTO, PropagationConsentDTO, CheckpointRestoreDTO, AuditQueryDTO,
     AuditTrailDTO, DecisionLedgerDTO, CheckpointListDTO, HealthCheckDTO,
     AuthorizationGrantDTO, MidStageSteerDTO, ContextQuestionDTO,

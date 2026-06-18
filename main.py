@@ -3,11 +3,17 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from config.settings import settings
+
+# Path to frontend build
+FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "frontend_dist")
 
 
 @asynccontextmanager
@@ -83,14 +89,38 @@ def _register_routes():
     """Register all route modules. Called after all modules are defined."""
     try:
         from interfaces.api.rest_controller import router as rest_router
+        from interfaces.api.rest_controller import admin_router
         from interfaces.api.sse_controller import router as sse_router
         app.include_router(rest_router, prefix="/api/v1")
+        app.include_router(admin_router, prefix="/api/v1")
         app.include_router(sse_router, prefix="/api/v1")
     except ImportError as e:
         print(f"Route registration deferred: {e}")
 
 
 _register_routes()
+
+# ── Static Files (React Frontend) ───────────────────────────────────────────
+
+if os.path.isdir(FRONTEND_DIST):
+    # Mount static assets
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+
+    @app.get("/", tags=["static"])
+    async def serve_root():
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+
+    @app.get("/{path:path}", tags=["static"])
+    async def serve_spa(path: str):
+        """Serve React SPA — return index.html for all non-API routes."""
+        # Don't intercept API routes
+        if path.startswith("api/") or path.startswith("docs") or path.startswith("openapi"):
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+        index_path = os.path.join(FRONTEND_DIST, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return JSONResponse(status_code=404, content={"detail": "Frontend not built"})
+
 
 if __name__ == "__main__":
     import uvicorn

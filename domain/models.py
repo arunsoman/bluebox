@@ -1100,6 +1100,13 @@ class PipelineSessionDTO(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class SessionSuspendDTO(BaseModel):
+    session_id: str
+    status: PipelineStatus = PipelineStatus.SUSPENDED
+    checkpoint_id: str = ""
+    suspended_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class SubmitInputRequest(BaseModel):
     text: str
     source: Literal["chat", "file_upload", "api"] = "chat"
