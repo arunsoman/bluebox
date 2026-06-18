@@ -1211,7 +1211,7 @@ export default function Blueprint() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-56px-40px)] -m-6">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Page Header */}
       <motion.div
         initial={{ opacity: 0 }}

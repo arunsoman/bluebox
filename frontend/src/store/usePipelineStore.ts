@@ -186,7 +186,9 @@ export const usePipelineStore = create<PipelineState>((set) => ({
     /* Try to create a real backend session */
     try {
       const { createSession } = await import('@/lib/api');
-      const result = await createSession(text);
+      const { useSettingsStore } = await import('@/store/useSettingsStore');
+      const modelId = useSettingsStore.getState().selectedModelId;
+      const result = await createSession(text, modelId || undefined);
       set({
         sessionId: result.session_id,
         projectId: result.project_id,

@@ -30,10 +30,14 @@ import {
   Search,
   Crosshair,
   AlertTriangle,
+  Box,
 } from 'lucide-react';
-import type { EntityType } from '@/data/mockEntities';
-import { graphNodes, graphEdges, allEntities } from '@/data/mockEntities';
+import type { EntityType, Entity } from '@/data/entityTypes';
+import { blueprintToEntities } from '@/data/entityTypes';
+import { useBlueprint } from '@/hooks/useBlueprint';
 import GlassButton from '@/components/GlassButton';
+import ForceGraph3DModal from '@/components/ForceGraph3DModal';
+import { usePipelineStore } from '@/store/usePipelineStore';
 
 /* ─── node type config ─── */
 const NODE_CONFIG: Record<EntityType, { label: string; icon: typeof Users; color: string; bgTint: string; borderColor: string; glow: string; minW: number; minH: number }> = {
@@ -335,11 +339,11 @@ function getConnectedNodes(nodeId: string, edges: Edge[], direction: 'downstream
 
 /* ─── sidebar legend ─── */
 const LEGEND_ITEMS: { type: EntityType; label: string; count: number }[] = [
-  { type: 'actor',      label: 'Actor',       count: allEntities.filter((e) => e.type === 'actor').length },
-  { type: 'capability', label: 'Capability',  count: allEntities.filter((e) => e.type === 'capability').length },
-  { type: 'use-case',   label: 'Use Case',    count: allEntities.filter((e) => e.type === 'use-case').length },
-  { type: 'story',      label: 'Story',       count: allEntities.filter((e) => e.type === 'story').length },
-  { type: 'task',       label: 'Task',        count: allEntities.filter((e) => e.type === 'task').length },
+  { type: 'actor',      label: 'Actor',       count: 0 },
+  { type: 'capability', label: 'Capability',  count: 0 },
+  { type: 'use-case',   label: 'Use Case',    count: 0 },
+  { type: 'story',      label: 'Story',       count: 0 },
+  { type: 'task',       label: 'Task',        count: 0 },
 ];
 
 const EDGE_LEGEND = [
@@ -350,6 +354,14 @@ const EDGE_LEGEND = [
 
 /* ─── main visualizer page ─── */
 export default function Visualizer() {
+  const { blueprint } = useBlueprint();
+  const entities = useMemo(() => blueprintToEntities(blueprint), [blueprint]);
+  const entityById = useMemo(() => {
+    const map = new Map<string, Entity>();
+    entities.forEach((e) => map.set(e.id, e));
+    return map;
+  }, [entities]);
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [impactMode, setImpactMode] = useState<ImpactMode>('none');
   const [activeLayout, setActiveLayout] = useState<'hierarchical' | 'force' | 'grid'>('hierarchical');
@@ -358,30 +370,42 @@ export default function Visualizer() {
   const [hiddenEdgeTypes, setHiddenEdgeTypes] = useState<Set<string>>(new Set());
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [sidebarTab, setSidebarTab] = useState<'legend' | 'selection'>('legend');
+  const [show3DGraph, setShow3DGraph] = useState(false);
 
-  /* Build nodes */
+  const rawPrd = usePipelineStore((s) => s.prdText);
+  const projectName = useMemo(() => {
+    if (!rawPrd) return 'Project Blueprint';
+    // Use first line or first 40 chars of the PRD as the project name
+    const firstLine = rawPrd.split('\n').find((l) => l.trim().length > 0);
+    if (firstLine && firstLine.length <= 60) return firstLine.trim();
+    return (firstLine || rawPrd).slice(0, 50).trim() + '...';
+  }, [rawPrd]);
+
+  /* Build nodes from blueprint entities */
   const initialNodes = useMemo<Node[]>(() => {
-    return graphNodes.map((gn) => {
-      const config = NODE_CONFIG[gn.type];
+    return entities.map((entity) => {
+      const config = NODE_CONFIG[entity.type];
       return {
-        id: gn.id,
+        id: entity.id,
         type: 'pipelineNode',
         position: { x: 0, y: 0 },
-        data: { entityType: gn.type, label: gn.label },
+        data: { entityType: entity.type, label: entity.name },
         style: { width: config.minW, height: config.minH },
       };
     });
-  }, []);
+  }, [entities]);
 
-  /* Build edges */
+  /* Build edges from entity relationships */
   const initialEdges = useMemo<Edge[]>(() => {
-    return graphEdges.map((ge) => {
-      const cfg = EDGE_CONFIG[ge.type] || EDGE_CONFIG.depends_on;
-      return {
-        id: ge.id,
-        source: ge.source,
-        target: ge.target,
-        label: ge.label,
+    const edges: Edge[] = [];
+    const addEdge = (source: string, target: string, type: 'depends' | 'implements' | 'performs' | 'derives', label: string, idSuffix: string) => {
+      if (!source || !target || source === target) return;
+      const cfg = EDGE_CONFIG[type] || EDGE_CONFIG.depends_on;
+      edges.push({
+        id: `${source}-${target}-${idSuffix}`,
+        source,
+        target,
+        label,
         type: 'smoothstep',
         style: {
           stroke: cfg.color,
@@ -394,10 +418,27 @@ export default function Visualizer() {
           width: 10,
           height: 10,
         },
-        data: { edgeType: ge.type },
-      };
+        data: { edgeType: type },
+      });
+    };
+
+    entities.forEach((entity) => {
+      if (entity.type === 'capability') {
+        entity.linkedActors.forEach((actorId, i) => addEdge(actorId, entity.id, 'performs', 'performs', `actor-cap-${i}`));
+      }
+      if (entity.type === 'use-case') {
+        entity.linkedCapabilities.forEach((capId, i) => addEdge(capId, entity.id, 'implements', 'implements', `cap-uc-${i}`));
+      }
+      if (entity.type === 'story') {
+        if (entity.linkedUseCase) addEdge(entity.linkedUseCase, entity.id, 'derives', 'derives', 'uc-story');
+      }
+      if (entity.type === 'task') {
+        if (entity.linkedStory) addEdge(entity.linkedStory, entity.id, 'depends', 'depends on', 'story-task');
+      }
     });
-  }, []);
+
+    return edges;
+  }, [entities]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -541,12 +582,12 @@ export default function Visualizer() {
       .filter((n) => !hiddenTypes.has(n.data.entityType as EntityType))
       .filter((n) => {
         if (!searchQuery) return true;
-        const entity = allEntities.find((e) => e.id === n.id);
+        const entity = entityById.get(n.id);
         if (!entity) return true;
         const q = searchQuery.toLowerCase();
         return entity.name.toLowerCase().includes(q) || entity.tags.some((t) => t.toLowerCase().includes(q));
       });
-  }, [nodes, hiddenTypes, searchQuery]);
+  }, [nodes, hiddenTypes, searchQuery, entityById]);
 
   const visibleEdges = useMemo(() => {
     const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
@@ -558,7 +599,7 @@ export default function Visualizer() {
   /* Selected node data */
   const selectedNodeData = useMemo(() => {
     if (!selectedNodeId) return null;
-    const entity = allEntities.find((e) => e.id === selectedNodeId);
+    const entity = entityById.get(selectedNodeId);
     const node = nodes.find((n) => n.id === selectedNodeId);
     if (!entity || !node) return null;
 
@@ -571,12 +612,12 @@ export default function Visualizer() {
       downstreamCount: downstream.size,
       upstreamCount: upstream.size,
       downstreamByType: Array.from(downstream).reduce((acc, id) => {
-        const e = allEntities.find((en) => en.id === id);
+        const e = entityById.get(id);
         if (e) acc[e.type] = (acc[e.type] || 0) + 1;
         return acc;
-      }, {} as Record<string, number>),
+      }, {} as Record<EntityType, number>),
     };
-  }, [selectedNodeId, edges, nodes]);
+  }, [selectedNodeId, edges, nodes, entityById]);
 
   /* Search and focus node */
   const focusNode = useCallback((nodeId: string) => {
@@ -591,8 +632,8 @@ export default function Visualizer() {
   const searchResults = useMemo(() => {
     if (!searchQuery) return [];
     const q = searchQuery.toLowerCase();
-    return allEntities.filter((e) => e.name.toLowerCase().includes(q)).slice(0, 5);
-  }, [searchQuery]);
+    return entities.filter((e) => e.name.toLowerCase().includes(q)).slice(0, 5);
+  }, [searchQuery, entities]);
 
   return (
     <div className="flex h-full relative overflow-hidden">
@@ -885,6 +926,14 @@ export default function Visualizer() {
             <GlassButton variant="ghost" size="sm" icon={<Download size={14} />}>
               Export
             </GlassButton>
+            <GlassButton
+              variant="primary"
+              size="sm"
+              icon={<Box size={14} />}
+              onClick={() => setShow3DGraph(true)}
+            >
+              3D Graph
+            </GlassButton>
           </motion.div>
         </div>
 
@@ -979,6 +1028,14 @@ export default function Visualizer() {
           </div>
         </motion.div>
       </div>
+
+      {/* 3D Force Graph Modal */}
+      <ForceGraph3DModal
+        open={show3DGraph}
+        onClose={() => setShow3DGraph(false)}
+        entities={entities}
+        projectName={projectName}
+      />
     </div>
   );
 }

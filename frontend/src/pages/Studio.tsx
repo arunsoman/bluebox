@@ -25,7 +25,6 @@ import GlassButton from '@/components/GlassButton';
 import type { StatusType } from '@/components/StatusBadge';
 import { usePipelineStore } from '@/store/usePipelineStore';
 import { useWebSocketStore } from '@/store/useWebSocketStore';
-import { useStreamingSimulator } from '@/hooks/useStreamingSimulator';
 import type { SteeringMode, PipelineRunState } from '@/types/studio';
 
 
@@ -296,24 +295,6 @@ export default function Studio() {
   const wsProgress = useWebSocketStore((s) => s.progress);
   const wsCurrentStage = useWebSocketStore((s) => s.currentStage);
 
-  /* -- Streaming simulator (MOCK fallback) -- */
-  const {
-    logs: simLogs,
-    isRunning: simIsRunning,
-    isPaused: simIsPaused,
-    currentStage: simStage,
-    progress: simProgress,
-    start: simStart,
-    pause: simPause,
-    resume: simResume,
-    stop,
-    clear,
-  } = useStreamingSimulator();
-
-  /* -- Backend connection -- */
-  const [isLive, setIsLive] = useState(false);
-  const [, setBackendLogs] = useState<{ id: string; timestamp: string; stageId: number; severity: string; message: string }[]>([]);
-
   /* -- Local state -- */
   const [selectedStage, setSelectedStage] = useState<number>(0);
   const [steeringMode, setSteeringMode] = useState<SteeringMode>('context');
@@ -331,78 +312,23 @@ export default function Studio() {
   /* -- Refs -- */
   const terminalRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
 
-  /* -- Detect live vs mock mode + connect WebSocket -- */
+  /* -- Detect live mode + connect WebSocket -- */
   useEffect(() => {
     if (sessionId && !sessionId.startsWith('local-')) {
-      setIsLive(true);
-      // Connect to WebSocket for real pipeline streaming
       useWebSocketStore.getState().connect(sessionId);
-    } else {
-      setIsLive(false);
     }
     return () => {
       useWebSocketStore.getState().disconnect();
     };
   }, [sessionId]);
 
-  /* -- WebSocket connection for live mode -- */
-  useEffect(() => {
-    if (!isLive || !sessionId) return;
-
-    const wsUrl = `ws://localhost:8000/ws/steering/${sessionId}`;
-    try {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setBackendLogs((prev) => [
-          ...prev,
-          { id: `ws-open-${Date.now()}`, timestamp: new Date().toLocaleTimeString(), stageId: 0, severity: 'success', message: 'WebSocket connected to pipeline' },
-        ]);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          setBackendLogs((prev) => [
-            ...prev,
-            { id: `ws-${Date.now()}`, timestamp: new Date().toLocaleTimeString(), stageId: data.data?.stage_id || 0, severity: 'info', message: JSON.stringify(data) },
-          ]);
-        } catch {
-          setBackendLogs((prev) => [
-            ...prev,
-            { id: `ws-${Date.now()}`, timestamp: new Date().toLocaleTimeString(), stageId: 0, severity: 'info', message: event.data },
-          ]);
-        }
-      };
-
-      ws.onerror = () => {
-        setIsLive(false);
-      };
-
-      ws.onclose = () => {
-        setIsLive(false);
-      };
-    } catch {
-      setIsLive(false);
-    }
-
-    return () => {
-      wsRef.current?.close();
-    };
-  }, [isLive, sessionId]);
-
-  /* -- Display logs: real WebSocket OR mock simulator --
-     NEVER show fake mock data when a real PRD is active */
-  const hasRealPRD = hasActivePRD && sessionId && !sessionId.startsWith('local-');
-  const useMockFallback = !isLive && !hasRealPRD;
-  const displayLogs = isLive ? wsLogs : (useMockFallback ? simLogs : []);
-  const displayIsRunning = isLive ? wsIsRunning : (useMockFallback ? simIsRunning : false);
-  const displayIsPaused = isLive ? false : (useMockFallback ? simIsPaused : false);
-  const displayProgress = isLive ? wsProgress : (useMockFallback ? simProgress : 0);
-  const displayCurrentStage = isLive ? (wsCurrentStage ?? 0) : (useMockFallback ? simStage : 0);
+  /* -- Display: always use real WebSocket data -- */
+  const displayLogs = wsLogs;
+  const displayIsRunning = wsIsRunning;
+  const displayIsPaused = false;
+  const displayProgress = wsProgress;
+  const displayCurrentStage = wsCurrentStage ?? 0;
 
   /* -- Auto-scroll terminal -- */
   useEffect(() => {
@@ -449,26 +375,22 @@ export default function Studio() {
   }, [displayCurrentStage, displayIsRunning, displayProgress, stages.length]);
 
   /* -- Handlers -- */
-  const handleStart = useCallback(() => {
+  const handleRun = useCallback(() => {
     setElapsed(0);
     setRunState('running');
-    simStart();
-  }, [simStart]);
+  }, []);
 
   const handlePause = useCallback(() => {
-    simPause();
     setRunState('paused');
-  }, [simPause]);
+  }, []);
 
   const handleResume = useCallback(() => {
-    simResume();
     setRunState('running');
-  }, [simResume]);
+  }, []);
 
   const handleStop = useCallback(() => {
-    stop();
     setRunState('stopped');
-  }, [stop]);
+  }, []);
 
   const handleCopy = useCallback(() => {
     const text = displayLogs.map((l) => `[${l.timestamp}] [S${l.stageId}] ${l.message}`).join('\n');
@@ -521,7 +443,7 @@ export default function Studio() {
       : 'idle';
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-48px)] gap-4 -m-6 p-6 overflow-hidden">
+    <div className="flex flex-col h-full gap-4 p-6 overflow-hidden">
       {/* ========== PAGE HEADER ========== */}
       <motion.div
         className="flex-shrink-0 flex items-center justify-between h-14"
@@ -540,12 +462,12 @@ export default function Studio() {
           <span
             className="font-mono-sm px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider"
             style={{
-              background: isLive ? 'rgba(57,255,20,0.1)' : 'rgba(255,184,0,0.1)',
-              color: isLive ? '#39FF14' : '#FFB800',
-              border: `1px solid ${isLive ? 'rgba(57,255,20,0.2)' : 'rgba(255,184,0,0.2)'}`,
+              background: 'rgba(57,255,20,0.1)',
+              color: '#39FF14',
+              border: '1px solid rgba(57,255,20,0.2)',
             }}
           >
-            {isLive ? '● Live' : '● Mock'}
+            ● Live
           </span>
           {sessionId && (
             <span className="font-mono-sm text-text-tertiary text-[10px]">
@@ -563,7 +485,7 @@ export default function Studio() {
           <GlassButton
             variant="primary"
             icon={<Play className="w-4 h-4" />}
-            onClick={runState === 'paused' ? handleResume : handleStart}
+            onClick={runState === 'paused' ? handleResume : handleRun}
             disabled={displayIsRunning}
             size="sm"
           >
@@ -641,12 +563,12 @@ export default function Studio() {
 
         {/* ----- CENTER: Streaming Terminal (50%) ----- */}
         <motion.div
-          className="flex-1 flex flex-col min-w-0"
+          className="flex-1 flex flex-col min-w-0 min-h-0"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.1 }}
         >
-          <GlassCard variant="frosted" padding="none" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <GlassCard variant="frosted" padding="none" className="flex-1 flex flex-col min-h-0 overflow-hidden" animated={false}>
             {/* Terminal header */}
             <div className="flex-shrink-0 h-10 flex items-center justify-between px-4 border-b border-[rgba(138,180,230,0.08)]">
               <div className="flex items-center gap-2">
@@ -708,7 +630,7 @@ export default function Studio() {
                   variant="ghost"
                   size="sm"
                   icon={<Trash2 className="w-3.5 h-3.5" />}
-                  onClick={clear}
+                  onClick={() => useWebSocketStore.getState().clearLogs()}
                   className="text-xs px-2 py-1"
                   title="Clear terminal"
                 >
@@ -749,26 +671,18 @@ export default function Studio() {
             {/* Terminal content */}
             <div
               ref={terminalRef}
-              className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-0.5"
+              className="scrollbar-terminal p-3 space-y-0.5 flex-1 min-h-0"
+              style={{
+                overflowY: 'scroll',
+                overflowX: 'hidden',
+              }}
             >
               {displayLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <Terminal className="w-8 h-8 text-[#4A6487] mb-2" />
-                  {hasRealPRD && !isLive ? (
-                    <>
-                      <p className="font-body-md text-[#FFB800] mb-2">
-                        Backend not connected
-                      </p>
-                      <p className="font-body-sm text-text-tertiary max-w-xs">
-                        Your PRD was submitted but the backend server is not reachable.
-                        Start the backend at <code className="text-[#00F5FF]">localhost:8000</code> to run the real pipeline.
-                      </p>
-                    </>
-                  ) : (
-                    <p className="font-body-md text-text-tertiary">
-                      {hasActivePRD ? 'Pipeline initialized — click Start to begin' : 'Submit a PRD on the Dashboard first'}
-                    </p>
-                  )}
+                  <p className="font-body-md text-text-tertiary">
+                    {hasActivePRD ? 'Pipeline initialized — waiting for data...' : 'Submit a PRD on the Dashboard first'}
+                  </p>
                 </div>
               ) : (
                 <AnimatePresence initial={false}>
@@ -1161,7 +1075,7 @@ export default function Studio() {
                         icon={<X className="w-3.5 h-3.5" />}
                         size="sm"
                         className="flex-1 text-[#FF3366] hover:text-[#FF3366]"
-                        onClick={handleStart}
+                        onClick={handleRun}
                       >
                         Retry
                       </GlassButton>
@@ -1315,7 +1229,7 @@ export default function Studio() {
                 variant="primary"
                 size="sm"
                 icon={<Play className="w-3.5 h-3.5" />}
-                onClick={runState === 'paused' ? handleResume : handleStart}
+                onClick={runState === 'paused' ? handleResume : handleRun}
                 className="px-2 py-1"
               >
                 <span className="sr-only">Start</span>

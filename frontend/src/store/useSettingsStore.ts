@@ -53,11 +53,12 @@ const MOCK_PROVIDERS: ProviderInfo[] = [
     ],
   },
   {
-    name: 'ollama', display_name: 'Ollama (Local)', has_key: true, requires_key: false,
-    key_env_var: 'OLLAMA_HOST', docs_url: 'https://ollama.com/library',
+    name: 'ollama', display_name: 'Ollama Cloud', has_key: false, requires_key: true,
+    key_env_var: 'OLLAMA_API_KEY', docs_url: 'https://ollama.com/signin',
     models: [
-      { id: 'llama3.3', name: 'Llama 3.3', description: "Meta's Llama 3.3 (local)", max_tokens: 128000, supports_streaming: true, supports_functions: false, cost_per_1k_input: 'Free', cost_per_1k_output: 'Free' },
-      { id: 'qwen2.5', name: 'Qwen 2.5', description: "Alibaba's Qwen 2.5 (local)", max_tokens: 128000, supports_streaming: true, supports_functions: false, cost_per_1k_input: 'Free', cost_per_1k_output: 'Free' },
+      { id: 'deepseek-v4-flash:cloud', name: 'DeepSeek V4 Flash', description: 'Fast cloud model via Ollama Cloud', max_tokens: 64000, supports_streaming: true, supports_functions: false, cost_per_1k_input: '$0.14', cost_per_1k_output: '$0.28' },
+      { id: 'glm-5:cloud', name: 'GLM 5', description: 'Zhipu GLM-5 via Ollama Cloud', max_tokens: 32000, supports_streaming: true, supports_functions: false, cost_per_1k_input: '$0.10', cost_per_1k_output: '$0.25' },
+      { id: 'qwen-3:cloud', name: 'Qwen 3', description: 'Alibaba Qwen-3 via Ollama Cloud', max_tokens: 128000, supports_streaming: true, supports_functions: false, cost_per_1k_input: '$0.12', cost_per_1k_output: '$0.30' },
     ],
   },
   {

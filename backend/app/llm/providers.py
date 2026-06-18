@@ -60,12 +60,10 @@ GOOGLE_MODELS = [
 ]
 
 OLLAMA_MODELS = [
-    ModelInfo("llama3.3", "Llama 3.3", "ollama", "Meta's Llama 3.3 (local)", 128000, True, False, "Free", "Free"),
-    ModelInfo("llama3.2", "Llama 3.2", "ollama", "Meta's Llama 3.2 (local)", 128000, True, False, "Free", "Free"),
-    ModelInfo("qwen2.5", "Qwen 2.5", "ollama", "Alibaba's Qwen 2.5 (local)", 128000, True, False, "Free", "Free"),
-    ModelInfo("mistral", "Mistral", "ollama", "Mistral 7B (local)", 32768, True, False, "Free", "Free"),
-    ModelInfo("codellama", "Code Llama", "ollama", "Code-specialized Llama (local)", 16384, True, False, "Free", "Free"),
-    ModelInfo("phi4", "Phi-4", "ollama", "Microsoft's Phi-4 (local)", 16384, True, False, "Free", "Free"),
+    ModelInfo("deepseek-v4-flash:cloud", "DeepSeek V4 Flash", "ollama", "Fast cloud model via Ollama Cloud", 64000, True, False, "$0.14", "$0.28"),
+    ModelInfo("glm-5:cloud", "GLM 5", "ollama", "Zhipu GLM-5 via Ollama Cloud", 32000, True, False, "$0.10", "$0.25"),
+    ModelInfo("qwen-3:cloud", "Qwen 3", "ollama", "Alibaba Qwen-3 via Ollama Cloud", 128000, True, False, "$0.12", "$0.30"),
+    ModelInfo("llama4:cloud", "Llama 4", "ollama", "Meta Llama 4 via Ollama Cloud", 128000, True, False, "$0.15", "$0.35"),
 ]
 
 DEEPSEEK_MODELS = [
@@ -100,12 +98,12 @@ PROVIDERS: dict[str, ProviderConfig] = {
     ),
     "ollama": ProviderConfig(
         name="ollama",
-        display_name="Ollama (Local)",
-        key_env_var="OLLAMA_HOST",
-        base_url_env_var="OLLAMA_HOST",
+        display_name="Ollama Cloud",
+        key_env_var="OLLAMA_API_KEY",
+        base_url_env_var="OLLAMA_BASE_URL",
         models=OLLAMA_MODELS,
-        requires_key=False,
-        docs_url="https://ollama.com/library",
+        requires_key=True,
+        docs_url="https://ollama.com/signin",
     ),
     "deepseek": ProviderConfig(
         name="deepseek",
@@ -198,7 +196,13 @@ def get_provider_key(provider_name: str) -> str:
 
 
 def get_model_config(model_id: str) -> dict | None:
-    """Get configuration for a specific model."""
+    """Get configuration for a specific model.
+    
+    Supports both predefined models and custom model names.
+    For custom models (not in the predefined list), infers the
+    provider from the model_id prefix or falls back to ollama cloud.
+    """
+    # Try predefined models first
     for provider in PROVIDERS.values():
         for model in provider.models:
             if model.id == model_id:
@@ -211,4 +215,18 @@ def get_model_config(model_id: str) -> dict | None:
                     "base_url": os.environ.get(provider.base_url_env_var, "") if provider.base_url_env_var else "",
                     "max_tokens": model.max_tokens,
                 }
+
+    # Custom model — route through Ollama Cloud by default
+    ollama_cfg = PROVIDERS.get("ollama")
+    if ollama_cfg:
+        return {
+            "id": model_id,
+            "name": model_id,
+            "provider": "ollama",
+            "provider_display": ollama_cfg.display_name,
+            "api_key": get_provider_key("ollama"),
+            "base_url": os.environ.get(ollama_cfg.base_url_env_var, "http://localhost:11434/v1"),
+            "max_tokens": 64000,
+        }
+
     return None

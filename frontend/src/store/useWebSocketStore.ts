@@ -59,15 +59,20 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
       socket.onopen = () => {
         set({ status: 'connected', socket });
-        // Send START_PIPELINE immediately
-        socket.send(JSON.stringify({ event: 'START_PIPELINE' }));
-        set({ isRunning: true });
+        // Do NOT send START_PIPELINE here — wait for STEERING_PANEL_READY from server
       };
 
       socket.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
           const data = msg.data || {};
+
+          // Send START_PIPELINE after server signals it's ready
+          if (msg.event === 'STEERING_PANEL_READY' && !data.type) {
+            socket.send(JSON.stringify({ event: 'START_PIPELINE' }));
+            set({ isRunning: true });
+            return;
+          }
 
           if (msg.event === 'CHUNK_STREAM') {
             if (data.type === 'stage_start') {
@@ -97,6 +102,22 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
                 message: data.message || JSON.stringify(data),
               });
             }
+          } else if (msg.event === 'STEERING_PANEL_READY' && data.type === 'pipeline_complete') {
+            const blueprint = data.blueprint || null;
+            set({
+              isRunning: false,
+              progress: 100,
+              currentStage: null,
+              blueprintData: blueprint,
+            });
+            get().addLog({
+              id: `log-${Date.now()}`,
+              timestamp: new Date().toLocaleTimeString(),
+              stageId: 7,
+              severity: 'success',
+              message: data.message || 'Pipeline complete — Blueprint assembled',
+              data,
+            });
           } else if (msg.event === 'STEERING_PANEL_READY' && data.type === 'stage_complete') {
             get().addLog({
               id: `log-${Date.now()}`,

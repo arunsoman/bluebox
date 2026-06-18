@@ -13,6 +13,7 @@ from fastapi.websockets import WebSocket
 from app.api.routes import router as api_router
 from app.api.websocket import websocket_steering
 from app.core.config import settings
+import app.db.models  # noqa: F401 — ensure models are registered with Base
 from app.core.exceptions import (
     BudgetExhaustedError,
     CompletenessGateError,
@@ -49,8 +50,7 @@ async def lifespan(app: FastAPI):
         from app.db.session import async_engine
         async with async_engine.begin() as conn:
             # In production, use Alembic migrations instead of create_all
-            # await conn.run_sync(Base.metadata.create_all)
-            pass
+            await conn.run_sync(Base.metadata.create_all)
         logger.info("Database engine initialized")
     except Exception as exc:
         logger.warning("Database init skipped (will retry): %s", exc)

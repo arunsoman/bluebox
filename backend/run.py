@@ -9,6 +9,13 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Load .env before anything else
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass  # dotenv not installed — env vars must be set manually
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
@@ -33,7 +40,7 @@ async def init_db():
 
 def create_minimal_app():
     """Create a minimal FastAPI app with just the endpoints we need."""
-    from fastapi import FastAPI
+    from fastapi import FastAPI, WebSocket
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
     from uuid import uuid4
@@ -45,10 +52,10 @@ def create_minimal_app():
         version="1.0.0",
     )
 
-    # CORS — allow everything
+    # CORS — allow frontend origin + localhost
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -91,6 +98,7 @@ def create_minimal_app():
             "current_stage": 0,
             "created_at": datetime.utcnow().isoformat(),
             "prd_text": (body or {}).get("prd_text", ""),
+            "model_id": (body or {}).get("model_id", ""),
         }
         logger.info(f"Session created: {sid}")
         return {"session_id": sid, "project_id": pid, "status": "created"}
@@ -264,9 +272,16 @@ def create_minimal_app():
             "offset": offset,
         }
 
+    # ─── WebSocket — Debug ping ───
+    @app.websocket("/ws/ping")
+    async def ping_ws(websocket: WebSocket):
+        await websocket.accept()
+        await websocket.send_json({"pong": True})
+        await websocket.close()
+
     # ─── WebSocket — Real-time Pipeline Streaming ───
     @app.websocket("/ws/steering/{session_id}")
-    async def steering_websocket(websocket, session_id: str):
+    async def steering_websocket(websocket: WebSocket, session_id: str):
         await websocket.accept()
         logger.info(f"WebSocket connected for session: {session_id}")
 
@@ -306,7 +321,8 @@ def create_minimal_app():
 
             # Create pipeline executor
             pid = session.get("project_id", str(uuid4()))
-            executor = create_executor(session_id, pid, prd_text)
+            model_id = session.get("model_id", "") or None
+            executor = create_executor(session_id, pid, prd_text, model_id=model_id)
 
             # Update session state
             session["state"] = "running"
@@ -360,12 +376,18 @@ def create_minimal_app():
 
             # Pipeline complete
             session["state"] = "completed"
+            blueprint = executor.to_blueprint_dict()
+            if blueprint:
+                blueprints[pid] = blueprint
+                logger.info(f"Blueprint stored for project {pid}")
+
             await websocket.send_json({
                 "event": "STEERING_PANEL_READY",
                 "data": {
                     "type": "pipeline_complete",
                     "message": "Pipeline complete — Blueprint assembled",
                     "project_id": pid,
+                    "blueprint": blueprint,
                 },
             })
 

@@ -24,6 +24,7 @@ import {
 import { useStreamingText } from '@/hooks/useStreamingText';
 import EmptyStateChat from '@/components/icons/EmptyStateChat';
 import { useWebSocketStore } from '@/store/useWebSocketStore';
+import { usePipelineStore } from '@/store/usePipelineStore';
 
 /* ------------------------------------------------------------------ */
 /*  TYPES                                                              */
@@ -66,142 +67,8 @@ interface ChatMessage {
 }
 
 /* ------------------------------------------------------------------ */
-/*  MOCK DATA                                                          */
+/*  SUGGESTION CHIPS                                                   */
 /* ------------------------------------------------------------------ */
-
-const mockConversation: ChatMessage[] = [
-  {
-    id: 'sys-1',
-    role: 'system',
-    content: 'Pipeline started for "E-Commerce Platform"',
-    timestamp: 'Just now',
-  },
-  {
-    id: 'ai-1',
-    role: 'ai',
-    content:
-      "Welcome! I'm your Context Agent. I'll help you transform your requirements into a structured blueprint through 8 pipeline stages.\n\nDescribe your project and I'll guide it through the entire process — from intent capture to blueprint assembly.",
-    timestamp: 'Just now',
-  },
-  {
-    id: 'user-1',
-    role: 'user',
-    content:
-      'Build an e-commerce platform with product catalog, shopping cart, payment processing, and order management. Users should be able to browse products, add to cart, checkout with Stripe, and track orders.',
-    timestamp: '2m ago',
-  },
-  {
-    id: 'ai-2',
-    role: 'ai',
-    content:
-      'Great! I\'ve captured your intent. Let me process this through the pipeline stages.\n\nStarting with **Intent Capture** — I\'ve identified the core domain as an e-commerce platform with these key functional areas:\n\n• Product catalog browsing\n• Shopping cart management\n• Payment processing (Stripe)\n• Order tracking\n\nMoving to **Actor Discovery** now...',
-    timestamp: '2m ago',
-  },
-  {
-    id: 'ai-3',
-    role: 'ai',
-    content:
-      'I\'ve identified **5 actors** in your system. Here\'s what I found:',
-    timestamp: '3m ago',
-    richContent: {
-      type: 'entities',
-      entities: [
-        {
-          type: 'actor',
-          name: 'Customer',
-          description: 'A registered user who browses products, manages their cart, and completes purchases.',
-          count: 8,
-        },
-        {
-          type: 'actor',
-          name: 'Admin',
-          description: 'System administrator who manages products, orders, and user accounts.',
-          count: 6,
-        },
-        {
-          type: 'actor',
-          name: 'Vendor',
-          description: 'Third-party seller who lists products and manages inventory.',
-          count: 4,
-        },
-        {
-          type: 'actor',
-          name: 'Payment Gateway',
-          description: 'External Stripe service for processing payments securely.',
-          count: 3,
-        },
-        {
-          type: 'actor',
-          name: 'API Client',
-          description: 'Mobile app and frontend SPA that consumes the REST API.',
-          count: 5,
-        },
-      ],
-    },
-  },
-  {
-    id: 'ai-4',
-    role: 'ai',
-    content:
-      'Does this actor structure look correct? You can add, remove, or modify any actor.',
-    timestamp: '3m ago',
-    richContent: {
-      type: 'steering',
-      title: 'Review Actor Structure',
-      question: 'How would you like to proceed with these actors?',
-      options: ['Looks correct — continue', 'Add another actor', 'Edit an existing actor', 'Remove an actor'],
-      actions: [
-        { label: 'Accept', variant: 'accept' },
-        { label: 'Modify', variant: 'modify' },
-        { label: 'Replace', variant: 'replace' },
-      ],
-    },
-  },
-  {
-    id: 'user-2',
-    role: 'user',
-    content:
-      'Yes, that looks correct. The admin should also have the ability to manage user roles.',
-    timestamp: '4m ago',
-  },
-  {
-    id: 'ai-5',
-    role: 'ai',
-    content:
-      'Perfect! I\'ve noted the additional capability for the Admin role: **user role management**.\n\nNow proceeding through the remaining stages...',
-    timestamp: '4m ago',
-  },
-  {
-    id: 'ai-6',
-    role: 'ai',
-    content:
-      '**Stage 5 complete!** I\'ve derived 24 user stories from the use cases. Here\'s a summary of the pipeline progress:',
-    timestamp: '6m ago',
-    richContent: {
-      type: 'progress',
-      stageNumber: 5,
-      totalStages: 8,
-      stageName: 'Story Derivation',
-    },
-  },
-  {
-    id: 'ai-7',
-    role: 'ai',
-    content:
-      '**Impact Analysis** — The change you requested (adding user role management to Admin) affects the following blueprint nodes:',
-    timestamp: '6m ago',
-    richContent: {
-      type: 'impact',
-      affectedNodes: [
-        'Admin.actor (capabilities +3)',
-        'RBAC.rbac_matrix (roles expanded)',
-        'Admin Dashboard.story_12 (acceptance criteria updated)',
-        'User Management.use_case_4 (flows modified)',
-        'Infrastructure.auth_service (permissions updated)',
-      ],
-    },
-  },
-];
 
 const suggestionChips = [
   { icon: Users, label: 'Show all actors' },
@@ -606,24 +473,45 @@ function WelcomeState({ onSuggestionClick }: { onSuggestionClick: (text: string)
 /* ------------------------------------------------------------------ */
 
 export default function Chat() {
-  const [messages, setMessages] = useState<ChatMessage[]>(mockConversation);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isThinking, setIsThinking] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wsStatus = useWebSocketStore((s) => s.status);
+  const wsLogs = useWebSocketStore((s) => s.logs);
 
   const {
     displayText: streamedText,
     isStreaming,
-    startStreaming,
   } = useStreamingText({ speed: 18 });
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamedText, isThinking]);
+
+  // Convert real WebSocket logs into chat messages
+  useEffect(() => {
+    if (wsLogs.length === 0) return;
+    const pipelineMessages: ChatMessage[] = wsLogs
+      .filter((log) => log.message)
+      .map((log, i) => ({
+        id: `ws-${i}`,
+        role: 'ai' as MessageRole,
+        content: log.message,
+        timestamp: log.timestamp || 'Just now',
+      }));
+
+    if (pipelineMessages.length > 0) {
+      setMessages((prev) => {
+        const userMsgs = prev.filter((m) => m.role === 'user');
+        return [...userMsgs, ...pipelineMessages];
+      });
+      setIsThinking(false);
+    }
+  }, [wsLogs]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -648,26 +536,9 @@ export default function Chat() {
     setInputText('');
     setIsThinking(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      setIsThinking(false);
-      const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        role: 'ai',
-        content:
-          'I\'ve processed your request. The pipeline is updating the blueprint based on your input. Here\'s what changed...',
-        timestamp: 'Just now',
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-
-      // Start streaming effect for the response
-      setTimeout(() => {
-        startStreaming(
-          'The system has been updated successfully. Would you like me to show you the full blueprint or continue with any other modifications?'
-        );
-      }, 300);
-    }, 1500);
-  }, [inputText, startStreaming]);
+    // Send to the real pipeline
+    usePipelineStore.getState().submitPRD(trimmed);
+  }, [inputText]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -687,17 +558,8 @@ export default function Chat() {
     setMessages((prev) => [...prev, userMsg]);
     setIsThinking(true);
 
-    setTimeout(() => {
-      setIsThinking(false);
-      const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        role: 'ai',
-        content:
-          'Great project! Let me analyze your requirements and guide them through the pipeline stages.',
-        timestamp: 'Just now',
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-    }, 1200);
+    // Send to real pipeline
+    usePipelineStore.getState().submitPRD(text);
   };
 
   const handleNewChat = () => {
@@ -707,7 +569,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-56px-40px)] -m-6">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Chat Header */}
       <motion.div
         initial={{ opacity: 0 }}

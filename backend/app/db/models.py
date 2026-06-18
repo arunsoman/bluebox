@@ -42,7 +42,7 @@ class DecisionEntryModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     entry_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid.uuid4()))
-    project_id: Mapped[str] = mapped_column(String(36), index=True)
+    project_id: Mapped[str] = mapped_column(String(36))  # index defined in __table_args__
     stage_id: Mapped[int] = mapped_column(Integer)
     action: Mapped[str] = mapped_column(String(50))  # accept, modify, replace, add, edit, remove, defer
     node_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
@@ -66,7 +66,7 @@ class SessionModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id: Mapped[str] = mapped_column(String(36), unique=True, index=True)
-    project_id: Mapped[str] = mapped_column(String(36), index=True)
+    project_id: Mapped[str] = mapped_column(String(36))  # index defined in __table_args__
     state: Mapped[str] = mapped_column(String(50), default="initialized")
     current_stage: Mapped[int] = mapped_column(Integer, default=-1)
     blueprint_snapshot: Mapped[dict] = mapped_column(JSONB, default=dict)
@@ -89,7 +89,7 @@ class AuditEventModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     event_id: Mapped[str] = mapped_column(String(36), unique=True)
-    project_id: Mapped[str] = mapped_column(String(36), index=True)
+    project_id: Mapped[str] = mapped_column(String(36))  # index defined in __table_args__
     level: Mapped[str] = mapped_column(String(20))  # diff, full, reference
     action: Mapped[str] = mapped_column(String(255))
     event_data: Mapped[dict] = mapped_column(JSONB, default=dict)
@@ -109,7 +109,7 @@ class CheckpointModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     checkpoint_id: Mapped[str] = mapped_column(String(36), unique=True, index=True)
-    project_id: Mapped[str] = mapped_column(String(36), index=True)
+    project_id: Mapped[str] = mapped_column(String(36))  # index defined in __table_args__
     stage: Mapped[int] = mapped_column(Integer)
     state: Mapped[str] = mapped_column(String(50))
     s3_key: Mapped[str] = mapped_column(String(512))  # Reference to S3/MinIO object

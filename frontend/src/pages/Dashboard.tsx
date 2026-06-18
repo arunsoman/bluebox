@@ -141,13 +141,16 @@ export default function Dashboard() {
   /* ── PRD Entry Point ── */
   if (!hasActivePRD) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-120px)] py-8">
-        <PRDInput onSubmit={submitPRD} classifyPRD={classifyPRD} />
+      <div className="h-full overflow-y-auto scrollbar-thin">
+        <div className="flex items-center justify-center min-h-full py-8">
+          <PRDInput onSubmit={submitPRD} classifyPRD={classifyPRD} />
+        </div>
       </div>
     );
   }
 
   return (
+    <div className="h-full overflow-y-auto scrollbar-thin p-6">
     <div className="space-y-6">
       {/* ── Loading Banner ── */}
       <AnimatePresence>
@@ -706,6 +709,7 @@ export default function Dashboard() {
           </GlassCard>
         </div>
       </div>
+    </div>
     </div>
   );
 }

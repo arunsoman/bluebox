@@ -31,7 +31,7 @@ const PROVIDER_COLORS: Record<string, string> = {
   openai: '#00F5FF',
   anthropic: '#D4A574',
   google: '#4285F4',
-  ollama: '#FF6B6B',
+  ollama: '#6B8AFF',
   deepseek: '#4DABF7',
 };
 
@@ -57,6 +57,20 @@ function ProviderCard({
 }) {
   const [showKey, setShowKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [customModel, setCustomModel] = useState(() => {
+    // Pre-fill if the selected model belongs to this provider and isn't a preset
+    if (selectedModelId && !provider.models?.some((m) => m.id === selectedModelId)) {
+      return selectedModelId;
+    }
+    return '';
+  });
+  // Sync custom model input when selectedModelId changes from outside
+  useEffect(() => {
+    if (selectedModelId && !provider.models?.some((m) => m.id === selectedModelId)) {
+      setCustomModel(selectedModelId);
+    }
+  }, [selectedModelId, provider.models]);
+
   const color = PROVIDER_COLORS[provider.name] || '#8BA4C7';
 
   const handleSubmit = async () => {
@@ -206,6 +220,53 @@ function ProviderCard({
                   ))}
                 </div>
               </div>
+
+              {/* Custom model input — shown for providers that support freeform model names (ollama cloud) */}
+              {provider.name === 'ollama' && (
+                <div>
+                  <h4 className="font-heading-sm text-text-secondary mb-2" style={{ fontSize: '13px' }}>
+                    Custom Model
+                  </h4>
+                  <p className="font-body-sm text-text-tertiary mb-2" style={{ fontSize: '11px' }}>
+                    Enter any Ollama Cloud model name (e.g. my-model:cloud)
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customModel}
+                      onChange={(e) => setCustomModel(e.target.value)}
+                      placeholder="model-name:cloud"
+                      className="flex-1 px-3 py-2.5 rounded-lg font-mono-sm outline-none transition-all"
+                      style={{
+                        background: 'rgba(10,22,40,0.5)',
+                        border: selectedModelId === customModel ? `1px solid ${color}40` : '1px solid rgba(138,180,230,0.1)',
+                        color: '#E8F0FE',
+                        fontSize: '12px',
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = `${color}40`; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = selectedModelId === customModel ? `${color}40` : 'rgba(138,180,230,0.1)'; }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && customModel.trim()) {
+                          onSelectModel(customModel.trim());
+                        }
+                      }}
+                    />
+                    <GlassButton
+                      variant="primary"
+                      onClick={() => {
+                        if (customModel.trim()) {
+                          onSelectModel(customModel.trim());
+                        }
+                      }}
+                      disabled={!customModel.trim()}
+                      className="flex items-center gap-1.5 px-4"
+                    >
+                      <Sparkles size={14} />
+                      <span className="font-heading-sm" style={{ fontSize: '12px' }}>Use</span>
+                    </GlassButton>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -322,7 +383,8 @@ export default function Settings() {
     : null;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="h-full overflow-y-auto scrollbar-thin p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -491,6 +553,7 @@ export default function Settings() {
           </div>
         </GlassCard>
       </motion.div>
+      </div>
     </div>
   );
 }

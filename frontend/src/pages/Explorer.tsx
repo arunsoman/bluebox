@@ -21,10 +21,14 @@ import {
   Trash2,
   FileCode,
 } from 'lucide-react';
-import type { Entity, EntityType, Actor, Capability, UseCase, UserStory, Task } from '@/data/mockEntities';
-import { allEntities } from '@/data/mockEntities';
+import type { Entity, EntityType, Actor, Capability, UseCase, UserStory, Task } from '@/data/entityTypes';
+import { blueprintToEntities } from '@/data/entityTypes';
+import { useBlueprint } from '@/hooks/useBlueprint';
 import GlassCard from '@/components/GlassCard';
 import GlassButton from '@/components/GlassButton';
+import ForceGraph3DModal from '@/components/ForceGraph3DModal';
+import { usePipelineStore } from '@/store/usePipelineStore';
+import { Box } from 'lucide-react';
 
 /* ─── entity config ─── */
 const ENTITY_CONFIG: Record<EntityType, { label: string; icon: typeof Users; color: string; bgTint: string; borderColor: string; glowClass: string }> = {
@@ -34,15 +38,6 @@ const ENTITY_CONFIG: Record<EntityType, { label: string; icon: typeof Users; col
   story:       { label: 'Story',       icon: BookOpen,   color: '#FFB800', bgTint: 'rgba(255,184,0,0.08)',   borderColor: 'rgba(255,184,0,0.3)',   glowClass: 'shadow-[0_0_20px_rgba(255,184,0,0.15)]' },
   task:        { label: 'Task',        icon: CheckSquare, color: '#8BA4C7', bgTint: 'rgba(138,180,230,0.05)', borderColor: 'rgba(138,180,230,0.2)', glowClass: 'shadow-[0_0_12px_rgba(138,180,230,0.1)]' },
 };
-
-const TABS: { key: 'all' | EntityType; label: string; icon: typeof Users; count: number }[] = [
-  { key: 'all',       label: 'All',       icon: Layers,      count: allEntities.length },
-  { key: 'actor',     label: 'Actors',    icon: Users,       count: allEntities.filter((e) => e.type === 'actor').length },
-  { key: 'capability', label: 'Capabilities', icon: Zap,     count: allEntities.filter((e) => e.type === 'capability').length },
-  { key: 'use-case',  label: 'Use Cases', icon: GitBranch,   count: allEntities.filter((e) => e.type === 'use-case').length },
-  { key: 'story',     label: 'Stories',   icon: BookOpen,    count: allEntities.filter((e) => e.type === 'story').length },
-  { key: 'task',      label: 'Tasks',     icon: CheckSquare, count: allEntities.filter((e) => e.type === 'task').length },
-];
 
 const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
   generated:  { color: '#00F5FF', label: 'Generated' },
@@ -131,13 +126,17 @@ function StoryCardContent({ entity }: { entity: UserStory }) {
 function TaskCardContent({ entity }: { entity: Task }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        {entity.taskType && (
+          <span className="text-xs font-mono px-2 py-0.5 rounded bg-[rgba(0,245,255,0.1)] text-[#00F5FF] border border-[rgba(0,245,255,0.2)]">
+            {entity.taskType}
+          </span>
+        )}
         <span className="flex items-center gap-1 text-xs font-mono text-[#4A6487]">
           <Clock size={12} />
-          {entity.estimatedHours}h
+          {entity.estimatedHours ?? '-'}h
         </span>
         <span className="text-xs font-mono text-[#4A6487]">{entity.dependencies.length} deps</span>
-        <span className="text-xs font-mono text-[#4A6487]">{entity.assignee}</span>
       </div>
       <p className="font-body-sm text-[#8BA4C7] line-clamp-3 leading-relaxed">{entity.description}</p>
     </div>
@@ -363,12 +362,12 @@ function DetailDrawer({ entity, onClose }: { entity: Entity; onClose: () => void
               {entity.type === 'task' && (
                 <>
                   <div className="flex items-center justify-between py-2 px-3 rounded-md bg-[rgba(10,22,40,0.3)] border border-[rgba(138,180,230,0.06)]">
-                    <span className="font-body-sm text-[#4A6487]">Estimated Hours</span>
-                    <span className="font-mono text-sm text-[#E8F0FE]">{(entity as Task).estimatedHours}h</span>
+                    <span className="font-body-sm text-[#4A6487]">Type</span>
+                    <span className="font-mono text-sm text-[#00F5FF]">{(entity as Task).taskType || '—'}</span>
                   </div>
                   <div className="flex items-center justify-between py-2 px-3 rounded-md bg-[rgba(10,22,40,0.3)] border border-[rgba(138,180,230,0.06)]">
-                    <span className="font-body-sm text-[#4A6487]">Assignee</span>
-                    <span className="font-mono text-sm text-[#E8F0FE]">{(entity as Task).assignee}</span>
+                    <span className="font-body-sm text-[#4A6487]">Estimated Hours</span>
+                    <span className="font-mono text-sm text-[#E8F0FE]">{(entity as Task).estimatedHours ?? '-'}h</span>
                   </div>
                 </>
               )}
@@ -432,6 +431,30 @@ function DetailDrawer({ entity, onClose }: { entity: Entity; onClose: () => void
             </motion.div>
           )}
 
+          {entity.type === 'task' && (() => {
+            const c = (entity as Task).contract;
+            if (!c || !Object.keys(c).length) return null;
+            const contractEntries = Object.entries(c).filter(([, v]) => Array.isArray(v) && v.length > 0);
+            if (contractEntries.length === 0) return null;
+            return (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                <h3 className="font-heading-sm text-[#8BA4C7] mb-3">Contract</h3>
+                <div className="space-y-3">
+                  {contractEntries.map(([key, items]) => (
+                    <div key={key} className="py-2 px-3 rounded-md bg-[rgba(10,22,40,0.3)] border border-[rgba(138,180,230,0.06)]">
+                      <span className="text-xs font-mono uppercase tracking-wider text-[#00F5FF] mb-1 block">{key}</span>
+                      <div className="space-y-1">
+                        {(items as string[]).map((item, i) => (
+                          <span key={i} className="block font-body-sm text-[#E8F0FE]">{item}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            );
+          })()}
+
           {/* Tags */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
             <h3 className="font-heading-sm text-[#8BA4C7] mb-3">Tags</h3>
@@ -465,13 +488,37 @@ function DetailDrawer({ entity, onClose }: { entity: Entity; onClose: () => void
 
 /* ─── main explorer page ─── */
 export default function Explorer() {
+  const { blueprint } = useBlueprint();
+  const entities = useMemo(() => blueprintToEntities(blueprint), [blueprint]);
+
+  const TABS: { key: 'all' | EntityType; label: string; icon: typeof Users; count: number }[] = useMemo(
+    () => [
+      { key: 'all', label: 'All', icon: Layers, count: entities.length },
+      { key: 'actor', label: 'Actors', icon: Users, count: entities.filter((e) => e.type === 'actor').length },
+      { key: 'capability', label: 'Capabilities', icon: Zap, count: entities.filter((e) => e.type === 'capability').length },
+      { key: 'use-case', label: 'Use Cases', icon: GitBranch, count: entities.filter((e) => e.type === 'use-case').length },
+      { key: 'story', label: 'Stories', icon: BookOpen, count: entities.filter((e) => e.type === 'story').length },
+      { key: 'task', label: 'Tasks', icon: CheckSquare, count: entities.filter((e) => e.type === 'task').length },
+    ],
+    [entities]
+  );
+
   const [activeTab, setActiveTab] = useState<'all' | EntityType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [show3DGraph, setShow3DGraph] = useState(false);
+
+  const rawPrd = usePipelineStore((s) => s.prdText);
+  const projectName = useMemo(() => {
+    if (!rawPrd) return 'Project Blueprint';
+    const firstLine = rawPrd.split('\n').find((l) => l.trim().length > 0);
+    if (firstLine && firstLine.length <= 60) return firstLine.trim();
+    return (firstLine || rawPrd).slice(0, 50).trim() + '...';
+  }, [rawPrd]);
 
   const filteredEntities = useMemo(() => {
-    let result = allEntities;
+    let result = entities;
     if (activeTab !== 'all') {
       result = result.filter((e) => e.type === activeTab);
     }
@@ -484,14 +531,14 @@ export default function Explorer() {
       );
     }
     return result;
-  }, [activeTab, searchQuery]);
+  }, [activeTab, searchQuery, entities]);
 
   const handleCardClick = useCallback((entity: Entity) => {
     setSelectedEntity(entity);
   }, []);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Background pattern */}
       <div
         className="absolute inset-0 pointer-events-none z-0 opacity-40"
@@ -502,7 +549,7 @@ export default function Explorer() {
       />
 
       {/* Page Header */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-5">
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-5 flex-shrink-0">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -546,11 +593,21 @@ export default function Explorer() {
           >
             <Filter size={16} className="text-[#8BA4C7]" />
           </button>
+
+          {/* 3D Graph button */}
+          <GlassButton
+            variant="primary"
+            size="sm"
+            icon={<Box size={14} />}
+            onClick={() => setShow3DGraph(true)}
+          >
+            3D Graph
+          </GlassButton>
         </motion.div>
       </div>
 
       {/* Category Filter Tabs */}
-      <div className="relative z-10 px-6 pb-4">
+      <div className="relative z-10 px-6 pb-4 flex-shrink-0">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -629,7 +686,7 @@ export default function Explorer() {
                         <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
                         <span className="font-body-sm text-[#E8F0FE] flex-1">{cfg.label}</span>
                         <span className="text-xs font-mono text-[#4A6487]">
-                          {allEntities.filter((e) => e.status === key).length}
+                          {entities.filter((e) => e.status === key).length}
                         </span>
                       </div>
                     ))}
@@ -640,12 +697,12 @@ export default function Explorer() {
                 <div>
                   <h3 className="font-heading-sm text-[#8BA4C7] mb-3">Tags</h3>
                   <div className="flex flex-wrap gap-1.5">
-                    {Array.from(new Set(allEntities.flatMap((e) => e.tags))).map((tag) => (
+                    {Array.from(new Set(entities.flatMap((e) => e.tags))).map((tag) => (
                       <span
-                        key={tag}
+                        key={String(tag)}
                         className="text-xs px-2.5 py-1 rounded-full border border-[rgba(138,180,230,0.1)] text-[#8BA4C7] bg-[rgba(10,22,40,0.3)] hover:border-[rgba(0,245,255,0.3)] hover:text-[#00F5FF] transition-all cursor-pointer"
                       >
-                        {tag}
+                        {String(tag)}
                       </span>
                     ))}
                   </div>
@@ -744,6 +801,14 @@ export default function Explorer() {
           />
         )}
       </AnimatePresence>
+
+      {/* 3D Force Graph Modal */}
+      <ForceGraph3DModal
+        open={show3DGraph}
+        onClose={() => setShow3DGraph(false)}
+        entities={entities}
+        projectName={projectName}
+      />
     </div>
   );
 }

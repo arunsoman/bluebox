@@ -22,6 +22,11 @@ class LLMClientInterface(ABC):
         """Streaming completion — yields tokens."""
         ...
 
+    @abstractmethod
+    async def complete_json(self, prompt: str, **kwargs: Any) -> dict:
+        """Non-streaming completion that parses response as JSON."""
+        ...
+
     async def handle_error(self, error: Exception, context: dict) -> dict:
         """Convert LLM errors to STEERING_REQUIRED events."""
         error_type = self._classify_error(error)

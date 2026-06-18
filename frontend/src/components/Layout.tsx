@@ -8,22 +8,23 @@ export default function Layout() {
   const location = useLocation();
 
   return (
-    <div className="app-root flex min-h-[100dvh]">
+    <div className="app-root flex h-[100dvh] overflow-hidden">
       {/* Noise texture overlay is in index.css */}
 
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0 relative z-10">
+      <div className="flex-1 flex flex-col min-w-0 h-full relative z-10 overflow-hidden">
         {/* Top bar */}
         <TopBar />
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto scrollbar-thin p-6">
+        {/* Page content — each page manages its own scrolling */}
+        <main className="flex-1 min-h-0 overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
+              className="h-full min-h-0 flex flex-col"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}

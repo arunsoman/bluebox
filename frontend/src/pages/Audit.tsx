@@ -680,6 +680,7 @@ export default function Audit() {
   };
 
   return (
+    <div className="h-full overflow-y-auto scrollbar-thin p-6">
     <div
       className="w-full"
       style={{
@@ -1151,6 +1152,7 @@ export default function Audit() {
 
       {/* ═══════ Detail Drawer ═══════ */}
       <DetailDrawer entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+    </div>
     </div>
   );
 }

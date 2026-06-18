@@ -8,7 +8,7 @@ pydantic-settings>=2.2,<3.0
 
 # Database
 sqlalchemy[asyncio]>=2.0,<2.1
-asyncpg>=0.29,<0.30
+asyncpg>=0.29
 alembic>=1.13,<1.15
 
 # Cache & Event Bus

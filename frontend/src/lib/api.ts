@@ -169,7 +169,7 @@ export async function getHealth(): Promise<HealthCheck> {
 }
 
 /** Create a new pipeline session */
-export async function createSession(prdText: string): Promise<{ session_id: string; project_id: string }> {
+export async function createSession(prdText: string, modelId?: string): Promise<{ session_id: string; project_id: string }> {
   if (!FEATURES.liveApi) {
     // Mock: return after short delay
     await new Promise((r) => setTimeout(r, 500));
@@ -177,7 +177,7 @@ export async function createSession(prdText: string): Promise<{ session_id: stri
   }
   return apiFetch('/session', {
     method: 'POST',
-    body: JSON.stringify({ prd_text: prdText }),
+    body: JSON.stringify({ prd_text: prdText, model_id: modelId || '' }),
   });
 }
 

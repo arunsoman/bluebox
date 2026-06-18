@@ -102,7 +102,8 @@
       linear-gradient(180deg, #050A14 0%, #080F1F 50%, #050A14 100%);
     background-size: 200% 200%, 200% 200%, 100% 100%, 100% 100%;
     animation: gradientShift 20s ease-in-out infinite alternate;
-    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
     position: relative;
   }
 
@@ -192,6 +193,41 @@
   .glass-bordered:hover {
     border-color: rgba(0, 245, 255, 0.5);
     box-shadow: 0 0 30px rgba(0, 245, 255, 0.25), 0 0 60px rgba(0, 245, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Terminal-specific scrollbar — always visible, distinct from page scrollbar */
+  .scrollbar-terminal {
+    overflow-y: scroll !important;  /* Force scrollbar to always show for testing */
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar-track {
+    background: rgba(10, 22, 40, 0.8);
+    border-radius: 4px;
+    border: 1px solid rgba(0, 245, 255, 0.08);
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar-thumb {
+    background: rgba(0, 245, 255, 0.4);
+    border-radius: 4px;
+    min-height: 40px;
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 245, 255, 0.7);
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Firefox */
+  .scrollbar-terminal {
+    scrollbar-width: auto;
+    scrollbar-color: rgba(0, 245, 255, 0.4) rgba(10, 22, 40, 0.8);
   }
 
   .scrollbar-thin::-webkit-scrollbar {
