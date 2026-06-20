@@ -1,0 +1,265 @@
+"""End-to-end FastAPI TestClient flow - doc/api_event_contract.md, the REST
+surface built in this pass. Uses `agent.override(model=TestModel())` on
+every agent the flow touches (pass 2 pattern) so no real LLM calls happen.
+
+Each test creates its own project via the API (random `proj-{uuid}` id) -
+`app_state` is a process-wide singleton shared across the whole test
+session, so tests must not share project ids.
+"""
+
+from contextlib import ExitStack
+
+import pytest
+from fastapi.testclient import TestClient
+from pydantic_ai.models.test import TestModel
+
+from bluebox.interfaces.api.app import create_app
+from bluebox.modules.advisory.rbac.llm import agents as rbac_agents
+from bluebox.modules.advisory.scaling.llm import agents as scaling_agents
+from bluebox.modules.advisory.tech_stack.llm import agents as tech_stack_agents
+from bluebox.modules.chat.llm import agents as chat_agents
+from bluebox.modules.code_generation.llm import agents as codegen_agents
+from bluebox.modules.core_pipeline.llm import agents as stage_agents
+from bluebox.modules.governance.llm import agents as governance_agents
+from bluebox.modules.input_processing.llm import agents as input_agents
+
+_ALL_AGENTS = [
+    input_agents.richness_classification_agent,
+    input_agents.prd_analysis_agent,
+    input_agents.compliance_detection_agent,
+    stage_agents.actor_generation_agent,
+    stage_agents.capability_generation_agent,
+    governance_agents.node_enrichment_agent,
+    scaling_agents.hosting_options_agent,
+    tech_stack_agents.tech_stack_options_agent,
+    rbac_agents.rbac_model_generation_agent,
+    chat_agents.chat_intent_parse_agent,
+    chat_agents.chat_response_agent,
+    chat_agents.context_question_agent,
+    codegen_agents.code_file_generation_agent,
+]
+
+
+@pytest.fixture
+def client():
+    with ExitStack() as stack:
+        for agent in _ALL_AGENTS:
+            stack.enter_context(agent.override(model=TestModel()))
+        yield TestClient(create_app())
+
+
+def _auth_headers(client: TestClient) -> dict:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "dev@bluebox.local", "password": "dev-password", "persona": "architect"},
+    )
+    assert response.status_code == 200, response.text
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _create_project(client: TestClient, headers: dict) -> str:
+    response = client.post(
+        "/api/v1/projects", json={"project_name": "Dental SaaS", "description": "Booking app"}, headers=headers
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["project_id"]
+
+
+def test_login_rejects_wrong_password(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/login", json={"email": "dev@bluebox.local", "password": "wrong", "persona": "architect"}
+    )
+    assert response.status_code == 401
+
+
+def test_login_then_me(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    response = client.get("/api/v1/auth/me", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["email"] == "dev@bluebox.local"
+
+
+def test_protected_route_requires_auth(client: TestClient) -> None:
+    response = client.get("/api/v1/projects")
+    assert response.status_code == 401
+
+
+def test_create_and_get_project(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    response = client.get(f"/api/v1/projects/{project_id}", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["project_name"] == "Dental SaaS"
+
+
+def test_full_steering_flow_commits_actor_nodes(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    onboarding = client.post(
+        f"/api/v1/projects/{project_id}/input",
+        json={"source": "text", "text": "A dental SaaS with patients and dentists."},
+        headers=headers,
+    )
+    assert onboarding.status_code == 200, onboarding.text
+
+    resume = client.post(f"/api/v1/projects/{project_id}/resume", headers=headers)
+    state = resume.json()["current_state"]
+    if state == "AWAITING_INPUT_SEED":
+        pytest.skip("TestModel produced a non-WELL_FORMED classification this run")
+
+    generated = client.post(
+        f"/api/v1/projects/{project_id}/steering/2/generate", json={"context": "dental SaaS"}, headers=headers
+    )
+    assert generated.status_code == 200, generated.text
+    panel = generated.json()
+    assert panel["stage_id"] == 2
+    assert panel["total_nodes"] >= 1
+
+    panel_get = client.get(f"/api/v1/projects/{project_id}/steering/2", headers=headers)
+    assert panel_get.status_code == 200
+
+    result = client.post(
+        f"/api/v1/projects/{project_id}/steering",
+        json={"action_type": "accept", "stage_id": 2, "payload": {}},
+        headers=headers,
+    )
+    assert result.status_code == 200, result.text
+    assert result.json()["success"] is True
+
+    # Generation result was consumed - re-fetching the panel now 404s.
+    panel_after = client.get(f"/api/v1/projects/{project_id}/steering/2", headers=headers)
+    assert panel_after.status_code == 404
+
+
+def test_node_enrich_and_deactivate(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    onboarding = client.post(
+        f"/api/v1/projects/{project_id}/input",
+        json={"source": "text", "text": "A dental SaaS with patients and dentists."},
+        headers=headers,
+    )
+    assert onboarding.status_code == 200
+    resume = client.post(f"/api/v1/projects/{project_id}/resume", headers=headers)
+    if resume.json()["current_state"] == "AWAITING_INPUT_SEED":
+        pytest.skip("TestModel produced a non-WELL_FORMED classification this run")
+
+    client.post(f"/api/v1/projects/{project_id}/steering/2/generate", json={"context": "x"}, headers=headers)
+    result = client.post(
+        f"/api/v1/projects/{project_id}/steering",
+        json={"action_type": "accept", "stage_id": 2, "payload": {}},
+        headers=headers,
+    )
+    assert result.status_code == 200
+
+    # No list-by-project nodes endpoint exists - pull the committed node id
+    # from the ledger entry's payload instead.
+    ledger = client.get(f"/api/v1/projects/{project_id}/ledger", headers=headers)
+    assert ledger.status_code == 200
+    entries = ledger.json()
+    assert len(entries) >= 1
+    node_id = entries[0]["payload"]["node_id"]
+
+    get_node = client.get(f"/api/v1/projects/{project_id}/nodes/{node_id}", headers=headers)
+    assert get_node.status_code == 200
+
+    delete_node = client.request(
+        "DELETE", f"/api/v1/projects/{project_id}/nodes/{node_id}",
+        json={"permanent": False, "delete_downstream": False, "rationale": "test"}, headers=headers,
+    )
+    assert delete_node.status_code == 200
+    assert delete_node.json()["deleted"] is True
+
+    restore_node = client.post(f"/api/v1/projects/{project_id}/nodes/{node_id}/restore", headers=headers)
+    assert restore_node.status_code == 200
+    assert restore_node.json()["is_active"] is True
+
+
+def test_checkpoint_create_get_restore(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    created = client.post(
+        f"/api/v1/projects/{project_id}/checkpoints", json={"label": "before stage 2", "stage": 1}, headers=headers
+    )
+    assert created.status_code == 200, created.text
+    checkpoint_id = created.json()["checkpoint_id"]
+
+    fetched = client.get(f"/api/v1/projects/{project_id}/checkpoints/{checkpoint_id}", headers=headers)
+    assert fetched.status_code == 200
+
+    restored = client.post(f"/api/v1/projects/{project_id}/checkpoints/restore?checkpoint_id={checkpoint_id}", headers=headers)
+    assert restored.status_code == 200
+    assert restored.json()["restored"] is True
+
+
+def test_chat_send_and_history(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    sent = client.post(
+        f"/api/v1/projects/{project_id}/chat", json={"content": "what's the status?"}, headers=headers
+    )
+    assert sent.status_code == 200, sent.text
+
+    history = client.get(f"/api/v1/projects/{project_id}/chat", headers=headers)
+    assert history.status_code == 200
+    assert len(history.json()["messages"]) == 2
+
+
+def test_scaling_generate_and_select(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    generated = client.post(
+        f"/api/v1/projects/{project_id}/scale/options?scale_persona=SMALL",
+        json={
+            "expected_total_users": 1000, "peak_concurrent_users": 100, "launch_timeline": "1-3 months",
+        },
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    option_id = generated.json()["options"][0]["option_id"]
+
+    selected = client.post(
+        f"/api/v1/projects/{project_id}/infrastructure/select?option_id={option_id}", headers=headers
+    )
+    assert selected.status_code == 200, selected.text
+
+    fetched = client.get(f"/api/v1/projects/{project_id}/infrastructure", headers=headers)
+    assert fetched.status_code == 200
+
+
+def test_rbac_generate_validate_commit(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    generated = client.post(f"/api/v1/projects/{project_id}/rbac/generate", headers=headers)
+    assert generated.status_code == 200, generated.text
+
+    validated = client.post(f"/api/v1/projects/{project_id}/rbac/validate", headers=headers)
+    assert validated.status_code == 200
+
+    committed = client.post(
+        f"/api/v1/projects/{project_id}/rbac/commit?rationale=initial", headers=headers
+    )
+    assert committed.status_code == 200, committed.text
+
+    fetched = client.get(f"/api/v1/projects/{project_id}/rbac", headers=headers)
+    assert fetched.status_code == 200
+
+
+def test_runtime_status_when_never_started(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    status_resp = client.get(f"/api/v1/projects/{project_id}/runtime/status", headers=headers)
+    assert status_resp.status_code == 200
+    assert status_resp.json()["status"] == "stopped"
+
+    stop_resp = client.post(f"/api/v1/projects/{project_id}/runtime/stop", headers=headers)
+    assert stop_resp.status_code == 409

@@ -1,0 +1,194 @@
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.header {
+  padding: 16px;
+  background: var(--color-cloud);
+  border-bottom: 1px solid var(--color-silver);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.description {
+  font-size: 12px;
+  color: var(--color-slate);
+  margin: 4px 0 0;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-silver);
+}
+
+.modeToggle {
+  display: flex;
+  gap: 4px;
+}
+.modeToggle button {
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-silver);
+  background: var(--color-white);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.activeMode {
+  background: var(--color-frontend) !important;
+  color: var(--color-white) !important;
+  border-color: var(--color-frontend) !important;
+}
+
+.trustChip {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-slate);
+}
+
+.nodeList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 28px;
+  font-size: 12px;
+  border-top: 1px solid var(--color-silver);
+}
+.pagination button {
+  background: none;
+  border: 1px solid var(--color-silver);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.contextWindow {
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--color-slate);
+  border-top: 1px solid var(--color-silver);
+}
+
+.actionBar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-top: 1px solid var(--color-silver);
+  flex-shrink: 0;
+}
+
+.bookmarkToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-warning);
+}
+
+.bookmarkChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 8px;
+}
+
+.bookmarkChip {
+  font-size: 11px;
+  background: var(--color-cloud);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+.impactLink {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-frontend);
+}
+
+.budgetRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  font-size: 12px;
+  border-top: 1px solid var(--color-silver);
+}
+
+.budgetBar {
+  flex: 1;
+  max-width: 160px;
+  height: 6px;
+  background: var(--color-cloud);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.budgetFill {
+  height: 100%;
+  background: var(--color-frontend);
+}
+
+.budgetWarning {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.consentNote {
+  font-size: 11px;
+  color: var(--color-error);
+  padding: 4px 16px 0;
+}
+
+.guardList {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0 0 0 34px;
+  font-size: 11px;
+  color: var(--color-slate);
+}
+
+.guardItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fileChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 0 6px 34px;
+}
+
+.fileChip {
+  font-size: 10px;
+  background: var(--color-cloud);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+}

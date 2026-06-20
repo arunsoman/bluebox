@@ -1,0 +1,84 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 13px;
+  position: relative;
+}
+.row:hover {
+  background: var(--color-cloud);
+}
+.active {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.chevron {
+  width: 12px;
+  font-size: 10px;
+  color: var(--color-slate);
+}
+
+.folderIcon {
+  font-size: 12px;
+}
+
+.layerDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-silver);
+  flex-shrink: 0;
+}
+.frontend {
+  background: var(--color-layer-frontend);
+}
+.backend {
+  background: var(--color-layer-backend);
+}
+.database {
+  background: var(--color-layer-database);
+}
+.infra {
+  background: var(--color-layer-infra);
+}
+.auth {
+  background: var(--color-layer-auth);
+}
+.test {
+  background: var(--color-layer-test);
+}
+.devops {
+  background: var(--color-layer-devops);
+}
+.security {
+  background: var(--color-layer-security);
+}
+
+.name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusIcon {
+  font-size: 10px;
+  margin-right: 8px;
+}
+.complete {
+  color: var(--color-success);
+}
+.generating {
+  color: var(--color-slate);
+}
+.modified {
+  color: var(--color-warning);
+}
+.conflict {
+  color: var(--color-error);
+}
+.stale {
+  color: var(--color-silver);
+}

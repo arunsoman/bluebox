@@ -1,0 +1,70 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card {
+  width: 520px;
+  background: var(--color-white);
+  border: 1px solid var(--color-silver);
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+}
+
+.heading {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-ink);
+  margin: 16px 0;
+}
+
+.waiting {
+  font-size: 13px;
+  color: var(--color-slate);
+}
+
+.progressTrack {
+  height: 6px;
+  background: var(--color-silver);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-frontend);
+  transition: width var(--motion-normal) var(--ease-standard);
+}
+
+.stepList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.step {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-silver);
+}
+
+.complete {
+  color: var(--color-success);
+}
+.active {
+  color: var(--color-frontend);
+}
+
+.stepIcon {
+  width: 16px;
+}

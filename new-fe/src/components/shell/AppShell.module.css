@@ -1,0 +1,143 @@
+.root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.leftSidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--color-silver);
+}
+
+.chatSlot {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fileExplorerSlot {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.centerTabBar {
+  height: 36px;
+  display: flex;
+  border-bottom: 1px solid var(--color-silver);
+  background: var(--color-cloud);
+  flex-shrink: 0;
+}
+
+.centerTab {
+  padding: 0 16px;
+  font-size: 13px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-slate);
+  position: relative;
+}
+.centerTab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.activeTab {
+  color: var(--color-ink);
+  font-weight: 600;
+  border-bottom: 2px solid var(--color-frontend);
+  background: var(--color-white);
+}
+
+.tabDot {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-warning);
+}
+
+.centerContent {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.bottomPanel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-silver);
+}
+
+.bottomTabBar {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--color-silver);
+  background: var(--color-cloud);
+  flex-shrink: 0;
+}
+
+.bottomTab {
+  padding: 0 12px;
+  font-size: 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-slate);
+  height: 100%;
+}
+
+.collapseToggle {
+  margin-left: auto;
+  margin-right: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.bottomContent {
+  flex: 1;
+  overflow: auto;
+}
+
+.collapsedBottomBar {
+  height: 32px;
+  border-top: 1px solid var(--color-silver);
+  background: var(--color-cloud);
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  font-size: 12px;
+  color: var(--color-slate);
+  cursor: pointer;
+}
+
+.rightSidebar {
+  border-left: 1px solid var(--color-silver);
+  overflow: auto;
+}
+
+.collapsedRail {
+  width: 24px;
+  border: none;
+  background: var(--color-cloud);
+  cursor: pointer;
+  color: var(--color-slate);
+}

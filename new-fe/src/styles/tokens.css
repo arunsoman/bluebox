@@ -1,0 +1,78 @@
+/**
+ * Design tokens transcribed from doc/uiux_specification.agent.final.md
+ * (semantic palette, layer colors, motion timing, z-index tiers).
+ * Do not hardcode hex/timing values in components — reference these.
+ */
+:root {
+  /* Neutrals */
+  --color-ink: #0f172a;
+  --color-slate: #475569;
+  --color-silver: #cbd5e1;
+  --color-cloud: #f8fafc;
+  --color-white: #ffffff;
+  --color-skeleton-base: #e2e8f0;
+  --color-skeleton-shimmer: #f1f5f9;
+
+  /* Semantic */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-error-bg: #fef2f2;
+  --color-info: #38bdf8;
+  --color-frontend: #2563eb;
+  --color-frontend-hover: #1d4ed8;
+
+  /* Architectural layer colors (File Explorer / Blueprint Graph) */
+  --color-layer-frontend: #2563eb;
+  --color-layer-backend: #059669;
+  --color-layer-database: #d97706;
+  --color-layer-infra: #7c3aed;
+  --color-layer-auth: #e11d48;
+  --color-layer-test: #ca8a04;
+  --color-layer-devops: #78716c;
+  --color-layer-security: #dc2626;
+
+  /* Terminal (dark, fixed regardless of theme per spec §5.6.1) */
+  --term-bg: #0f172a;
+  --term-fg: #f8fafc;
+  --term-cursor: #60a5fa;
+  --term-selection: rgba(96, 165, 250, 0.25);
+  --term-red: #f87171;
+  --term-green: #34d399;
+  --term-blue: #60a5fa;
+
+  /* Typography */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Motion (UIUX §3.5 token system) */
+  --motion-fast: 150ms;
+  --motion-normal: 250ms;
+  --motion-slow: 400ms;
+  --motion-deliberate: 600ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Z-index tiers (UIUX §3.2.1) */
+  --z-base: 0;
+  --z-panel: 100;
+  --z-dropdown: 800;
+  --z-tooltip: 900;
+  --z-modal: 1000;
+  --z-toast: 5000;
+  --z-celebration-modal: 6000;
+
+  /* Layout (UIUX §3.1) */
+  --toolbar-height: 48px;
+  --left-sidebar-default: 320px;
+  --left-sidebar-min: 260px;
+  --left-sidebar-max: 480px;
+  --right-sidebar-default: 400px;
+  --right-sidebar-min: 320px;
+  --right-sidebar-max: 640px;
+  --bottom-panel-default: 200px;
+  --bottom-panel-min: 120px;
+  --bottom-panel-max: 480px;
+}

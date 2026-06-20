@@ -1,0 +1,102 @@
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.option {
+  border: 1px solid var(--color-silver);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.optionHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.optionName {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.stackRow {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.stackFramework {
+  font-weight: 600;
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.stackLanguage {
+  color: var(--color-slate);
+  width: 90px;
+  flex-shrink: 0;
+}
+
+.stackJustification {
+  color: var(--color-slate);
+}
+
+.optionRationale {
+  font-size: 12px;
+  color: var(--color-slate);
+  margin: 0 0 12px;
+  font-style: italic;
+}
+
+.prosConsRow {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.prosCons {
+  flex: 1;
+  font-size: 12px;
+}
+
+.prosCons ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--color-slate);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-frontend);
+  font-size: 12px;
+  padding: 0;
+}
+
+.rawJson {
+  margin-top: 12px;
+  background: var(--color-ink);
+  color: var(--color-cloud);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  max-height: 240px;
+}

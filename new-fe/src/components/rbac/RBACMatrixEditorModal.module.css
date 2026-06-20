@@ -1,0 +1,85 @@
+.inheritanceChain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 13px;
+  gap: 4px;
+}
+
+.chainItem {
+  font-weight: 600;
+}
+
+.chainArrow {
+  color: var(--color-slate);
+  margin: 0 4px;
+  font-weight: 400;
+}
+
+.depthRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--color-slate);
+}
+
+.badgeSuccess,
+.badgeError {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.badgeSuccess {
+  color: var(--color-success);
+  background: rgba(16, 185, 129, 0.1);
+}
+.badgeError {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-slate);
+  border-bottom: 1px solid var(--color-silver);
+  padding: 6px 8px;
+}
+
+.table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-cloud);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rawJson {
+  background: var(--color-ink);
+  color: var(--color-cloud);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  max-height: 240px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}

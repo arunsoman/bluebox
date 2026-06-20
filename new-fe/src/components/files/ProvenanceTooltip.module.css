@@ -1,0 +1,38 @@
+.tooltip {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  width: 280px;
+  background: var(--color-white);
+  border: 1px solid var(--color-silver);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  z-index: var(--z-tooltip);
+  padding: 10px 12px;
+}
+
+.section {
+  margin-bottom: 8px;
+}
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.heading {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-slate);
+  margin-bottom: 4px;
+}
+
+.body {
+  font-size: 12px;
+  margin: 0;
+}
+
+.chainStep {
+  font-size: 11px;
+  color: var(--color-slate);
+  margin: 0;
+}

@@ -1,0 +1,214 @@
+.page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.header {
+  margin-bottom: 20px;
+}
+
+.heading {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.scalePersona {
+  font-size: 13px;
+  color: var(--color-slate);
+  margin: 0;
+}
+
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.option {
+  border: 1px solid var(--color-silver);
+  border-radius: 12px;
+  padding: 20px;
+  background: var(--color-white);
+}
+
+.optionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.optionName {
+  font-size: 15px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.recommendedBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-success);
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.overBudgetBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-error);
+  background: var(--color-error-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.optionDescription {
+  font-size: 13px;
+  color: var(--color-slate);
+  margin: 10px 0;
+}
+
+.components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.componentChip {
+  font-size: 11px;
+  color: var(--color-ink);
+  background: var(--color-cloud);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+
+.cost {
+  margin-bottom: 12px;
+}
+
+.costRange {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.costBasis,
+.costMeta {
+  font-size: 11px;
+  color: var(--color-slate);
+  margin: 2px 0;
+}
+
+.badgeRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.badgeSuccess,
+.badgeWarning,
+.badgeError {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.badgeSuccess {
+  color: var(--color-success);
+  background: rgba(16, 185, 129, 0.1);
+}
+.badgeWarning {
+  color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.1);
+}
+.badgeError {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.prosConsRow {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.prosCons {
+  flex: 1;
+  font-size: 12px;
+}
+
+.prosCons ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--color-slate);
+}
+
+.optionRationale {
+  font-size: 12px;
+  color: var(--color-slate);
+  margin: 0 0 12px;
+  font-style: italic;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-frontend);
+  font-size: 12px;
+  padding: 0;
+}
+
+.rawJson {
+  margin-top: 12px;
+  background: var(--color-ink);
+  color: var(--color-cloud);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  max-height: 240px;
+}
+
+.compareSection {
+  margin-top: 20px;
+  border: 1px solid var(--color-silver);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.compareHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.compareTable {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+}
+
+.compareTable td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-cloud);
+}
+
+.architectNote {
+  margin-top: 20px;
+  font-size: 13px;
+  color: var(--color-slate);
+  background: var(--color-cloud);
+  border-radius: 8px;
+  padding: 14px 16px;
+}

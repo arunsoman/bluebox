@@ -1,0 +1,89 @@
+.rowGroup {
+  border-bottom: 1px solid var(--color-cloud);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+}
+
+.consentRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-error);
+  padding: 0 12px 8px 34px;
+}
+
+.criticalRow {
+  border-left: 2px solid var(--color-error);
+}
+
+.name {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.type {
+  font-size: 11px;
+  color: var(--color-slate);
+  width: 100px;
+}
+
+.riskBadge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.low {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--color-success);
+}
+.medium {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+}
+.high {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning);
+}
+.critical {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.autoBadge {
+  font-size: 10px;
+  color: var(--color-success);
+}
+
+.downstream {
+  font-size: 11px;
+  color: var(--color-slate);
+  width: 100px;
+}
+
+.bookmark {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-silver);
+  font-size: 16px;
+}
+.bookmarked {
+  color: var(--color-warning);
+}

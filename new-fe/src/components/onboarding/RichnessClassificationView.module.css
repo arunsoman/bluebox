@@ -1,0 +1,83 @@
+.card {
+  width: 520px;
+  background: var(--color-white);
+  border: 1px solid var(--color-silver);
+  border-radius: 12px;
+  padding: 32px;
+  margin: 0 auto;
+}
+
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.wellFormed {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+.minimalist {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+.seedOnly {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.confidence {
+  font-size: 12px;
+  color: var(--color-slate);
+}
+
+.expandToggle {
+  display: block;
+  margin-top: 16px;
+  background: none;
+  border: none;
+  color: var(--color-frontend);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.basisList {
+  margin: 12px 0 0;
+  padding-left: 16px;
+  font-size: 13px;
+  color: var(--color-slate);
+  line-height: 1.6;
+}
+
+.reviewQuestion {
+  font-size: 14px;
+  color: var(--color-ink);
+  margin: 0 0 16px;
+}
+
+.reviewActions {
+  display: flex;
+  gap: 8px;
+}

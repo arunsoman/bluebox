@@ -1,0 +1,105 @@
+.banner {
+  width: 100%;
+  max-width: 680px;
+  background: var(--color-cloud);
+  border: 1px solid var(--color-silver);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 16px auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerText {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.dismiss {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: var(--color-slate);
+  cursor: pointer;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.high {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+.medium {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+.low {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+.chipRemove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  color: inherit;
+}
+
+.toggle {
+  margin-top: 12px;
+  background: none;
+  border: none;
+  color: var(--color-frontend);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-slate);
+  border-bottom: 1px solid var(--color-silver);
+  padding: 8px 0;
+}
+.table td {
+  padding: 6px 0;
+}
+.table code {
+  background: var(--color-white);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}

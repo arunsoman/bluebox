@@ -1,0 +1,56 @@
+.card {
+  border: 1px solid var(--color-silver);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 8px 12px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-slate);
+}
+
+.description {
+  font-size: 13px;
+  color: var(--color-slate);
+  margin: 8px 0;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 60px;
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px solid var(--color-silver);
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.json {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--color-cloud);
+  padding: 8px;
+  border-radius: 6px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}

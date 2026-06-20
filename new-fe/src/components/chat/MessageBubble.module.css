@@ -1,0 +1,60 @@
+.row {
+  display: flex;
+  margin-bottom: 4px;
+}
+
+.rowRight {
+  justify-content: flex-end;
+}
+.rowLeft {
+  justify-content: flex-start;
+}
+
+.bubble {
+  max-width: 85%;
+  padding: 12px 16px;
+  font-size: 14px;
+  border-left: 4px solid transparent;
+}
+
+.userIntent {
+  background: rgba(37, 99, 235, 0.15);
+  border-left-color: var(--color-frontend);
+  border-radius: 12px;
+  color: var(--color-ink);
+}
+
+.userCommand {
+  background: rgba(124, 58, 237, 0.15);
+  border-left-color: var(--color-layer-infra);
+  border-radius: 12px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+.userFeedback {
+  background: rgba(16, 185, 129, 0.15);
+  border-left-color: var(--color-success);
+  border-radius: 12px;
+  color: var(--color-ink);
+}
+
+.systemResponse {
+  background: var(--color-cloud);
+  border-left: 1px solid var(--color-silver);
+  border-radius: 8px;
+  color: var(--color-slate);
+}
+
+.richCard {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 100%;
+}
+
+.unsupportedCard {
+  font-size: 12px;
+  color: var(--color-slate);
+}

@@ -3,3 +3,8 @@
 *.pyo
 node_modules/
 frontend/node_modules/
+be/.venv/
+be/.workspaces/
+be/.env
+be/.pytest_cache/
+.env

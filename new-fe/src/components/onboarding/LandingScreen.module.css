@@ -1,0 +1,144 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-white);
+}
+
+.container {
+  width: 680px;
+  margin-top: -60px;
+}
+
+.headline {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-ink);
+  margin: 0;
+}
+
+.subline {
+  font-size: 14px;
+  color: var(--color-slate);
+  margin: 12px 0 0;
+}
+
+.textInput {
+  width: 100%;
+  min-height: 120px;
+  max-height: 400px;
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--color-silver);
+  border-radius: 12px;
+  font-size: 16px;
+  line-height: 1.5;
+  font-family: inherit;
+  resize: vertical;
+}
+.textInput:focus {
+  outline: none;
+  border-color: var(--color-frontend);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.submitRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-silver);
+  margin: 20px 0;
+}
+
+.uploadRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chip,
+.chipDisabled {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--color-silver);
+  border-radius: 8px;
+  background: var(--color-cloud);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-slate);
+  cursor: pointer;
+}
+.chip:hover {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: var(--color-frontend);
+}
+.chipDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gitRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.gitInput {
+  width: 320px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-silver);
+  border-radius: 8px;
+}
+
+.templateHeading {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-slate);
+  margin: 24px 0 16px;
+}
+
+.templateRow {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+}
+
+.templateCard {
+  width: 180px;
+  min-width: 180px;
+  height: 96px;
+  padding: 16px;
+  border: 1px solid var(--color-silver);
+  border-radius: 10px;
+  background: var(--color-white);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+}
+.templateCard:hover {
+  border-color: var(--color-frontend);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.trustModeBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-white);
+  border-top: 1px solid var(--color-silver);
+}

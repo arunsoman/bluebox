@@ -1,0 +1,59 @@
+.panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-silver);
+  flex-shrink: 0;
+}
+
+.refresh {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+
+.tree {
+  position: relative;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.tooltipAnchor {
+  position: relative;
+}
+
+.diffLines {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 12px;
+}
+
+.added {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--color-success);
+}
+
+.removed {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  text-decoration: line-through;
+}

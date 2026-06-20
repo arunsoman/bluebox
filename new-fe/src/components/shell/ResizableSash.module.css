@@ -1,0 +1,19 @@
+.vertical {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+}
+.vertical:hover {
+  background: var(--color-silver);
+}
+
+.horizontal {
+  height: 4px;
+  cursor: row-resize;
+  background: transparent;
+  flex-shrink: 0;
+}
+.horizontal:hover {
+  background: var(--color-silver);
+}
