@@ -7,7 +7,8 @@ from pydantic_ai.models.test import TestModel
 
 from bluebox.modules.chat.application.chat_service import ChatService
 from bluebox.modules.chat.llm import agents as chat_agents
-from bluebox.modules.chat.llm.responses import NodeManipulationAction
+from bluebox.modules.chat.llm.requests import ContextQuestionRequest
+from bluebox.modules.chat.llm.responses import ContextAnswer, NodeManipulationAction
 from bluebox.modules.governance.application.node_service import NodeService
 from bluebox.shared_kernel.domain.audit import (
     AuditActor,
@@ -17,7 +18,7 @@ from bluebox.shared_kernel.domain.audit import (
     DecisionEntryMetadata,
     ProvenanceChain,
 )
-from bluebox.shared_kernel.domain.node import ActorNode, NodeProvenance
+from bluebox.shared_kernel.domain.node import ActorNode, EngineeringTaskNode, NodeProvenance, UserStoryNode
 from bluebox.shared_kernel.infrastructure.in_memory import (
     InMemoryAuditTrailRepository,
     InMemoryChatRepository,
@@ -90,6 +91,43 @@ async def test_ask_context_question_uses_retrieved_context(chat_service) -> None
     with chat_agents.context_question_agent.override(model=TestModel()):
         answer = await service.ask_context_question(_PROJECT, "why was the Dentist actor added?")
     assert answer.answer
+
+
+async def test_ask_context_question_with_context_node_id_includes_node_context(
+    chat_service, monkeypatch
+) -> None:
+    service, _, nodes = chat_service
+    story = UserStoryNode(
+        node_id="US-1", name="Booking story", description="As a dentist I book an appointment",
+        layer="Backend", risk_classification="LOW_RISK", status="SYSTEM_GENERATED", created_by="system",
+        provenance=NodeProvenance(generated_at_stage=6, decision_entry_id="DEC-1", checkpoint_id="CKPT-1"),
+        title="Book appointment", actor_id="ACT-1", story_points=3, priority="Must Have",
+        acceptance_criteria=[], technical_notes="", dependencies=[],
+    )
+    task = EngineeringTaskNode(
+        node_id="TASK-1", name="Booking endpoint", description="POST /bookings", layer="Backend",
+        risk_classification="LOW_RISK", status="SYSTEM_GENERATED", created_by="system",
+        provenance=NodeProvenance(generated_at_stage=6, decision_entry_id="DEC-1", checkpoint_id="CKPT-1"),
+        estimated_hours=4, complexity="Low", preconditions=[], postconditions=[],
+        file_paths=["backend/bookings.py"], tech_stack_requirements=["FastAPI"], parent_story_id="US-1",
+    )
+    nodes.add(_PROJECT, story)
+    nodes.add(_PROJECT, task)
+
+    captured: list[ContextQuestionRequest] = []
+
+    async def fake_answer_context_question(request: ContextQuestionRequest) -> ContextAnswer:
+        captured.append(request)
+        return ContextAnswer(answer="ok", sources=[])
+
+    monkeypatch.setattr(chat_agents, "answer_context_question", fake_answer_context_question)
+
+    await service.ask_context_question(_PROJECT, "what could go wrong here?", context_node_id="TASK-1")
+
+    node_items = [item for item in captured[0].retrieved_context if item.source_type == "node"]
+    assert {item.source_id for item in node_items} == {"TASK-1", "US-1"}
+    task_item = next(item for item in node_items if item.source_id == "TASK-1")
+    assert "backend/bookings.py" in task_item.content
 
 
 async def test_send_message_persists_inbound_and_outbound(chat_service) -> None:

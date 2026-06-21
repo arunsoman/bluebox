@@ -21,6 +21,7 @@ from bluebox.modules.core_pipeline.application.project_service import ProjectSer
 from bluebox.modules.core_pipeline.application.stage_service import StageService
 from bluebox.modules.core_pipeline.application.steering_service import SteeringService
 from bluebox.modules.governance.application.node_service import NodeService
+from bluebox.modules.graph.application.what_if_service import WhatIfService
 from bluebox.shared_kernel.infrastructure.in_memory import AppState, app_state
 
 
@@ -46,6 +47,10 @@ def get_steering_service() -> SteeringService:
 
 def get_node_service() -> NodeService:
     return NodeService(app_state.nodes)
+
+
+def get_what_if_service() -> WhatIfService:
+    return WhatIfService(app_state.nodes, app_state.pending_what_if_simulations)
 
 
 def get_scaling_service() -> ScalingService:

@@ -37,6 +37,12 @@ def test_get_raises_when_missing(node_service) -> None:
         service.get(_PROJECT, "does-not-exist")
 
 
+def test_list_by_project_passthrough(node_service) -> None:
+    service, _ = node_service
+    listed = service.list_by_project(_PROJECT)
+    assert [n.node_id for n in listed] == ["ACT-1"]
+
+
 def test_deactivate_and_restore(node_service) -> None:
     service, _ = node_service
     node = service.deactivate(_PROJECT, "ACT-1")

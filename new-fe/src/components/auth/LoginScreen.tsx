@@ -15,83 +15,109 @@ export function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [persona, setPersona] = useState<Persona>("architect");
-  const [trustMode] = useState<TrustMode>("PARANOID");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     try {
-      await login({ email, password, persona, trust_mode_default: trustMode });
+      await login({ email, password, persona, trust_mode_default: "PARANOID" });
       navigate("/", { replace: true });
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Login failed. Please try again.";
-      pushToast({ severity: "error", title: "Sign in failed", body: message });
+      pushToast({
+        severity: "error",
+        title: "ACCESS DENIED",
+        body: err instanceof ApiError ? err.message : "Auth failure",
+      });
     }
   }
 
   return (
     <div className={styles.page}>
-      <form className={styles.card} onSubmit={handleSubmit}>
-        <h1 className={styles.title}>Collaborative Steering Pipeline</h1>
-        <p className={styles.subtitle}>Sign in to continue</p>
-
-        <label className={styles.label} htmlFor="email">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className={styles.input}
-        />
-
-        <label className={styles.label} htmlFor="password">
-          Password
-        </label>
-        <input
-          id="password"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={styles.input}
-        />
-
-        <label className={styles.label} htmlFor="persona">
-          Persona
-        </label>
-        <select
-          id="persona"
-          value={persona}
-          onChange={(e) => setPersona(e.target.value as Persona)}
-          className={styles.input}
-        >
-          <option value="architect">Developer / Architect</option>
-          <option value="citizen_developer">Citizen Developer</option>
-          <option value="security_engineer">Security Engineer</option>
-        </select>
-        <p className={styles.personaNote}>
-          This build implements the full Power User / Architect interface only. Other personas
-          authenticate normally but do not yet get persona-specific panel hiding.
-        </p>
-
-        <Button type="submit" loading={status === "loading"} style={{ width: "100%", marginTop: 16 }}>
-          Sign in
-        </Button>
-
-        <div className={styles.disabledRow}>
-          <button type="button" className={styles.disabledButton} disabled title="Coming soon">
-            Continue with SSO
-          </button>
-          <button type="button" className={styles.disabledButton} disabled title="Coming soon">
-            Use biometric login
-          </button>
+      <div className={styles.gridOverlay} />
+      <div className={styles.ambientGlow} />
+      
+      <div className={styles.terminal}>
+        <div className={styles.terminalHeader}>
+          <span className={styles.dotRed} />
+          <span className={styles.dotYellow} />
+          <span className={styles.dotGreen} />
+          <span className={styles.title}>bluebox — login</span>
         </div>
-      </form>
+        
+        <div className={styles.body}>
+          <pre className={styles.ascii}>
+{`   ____  __               __   _____            
+  / __ )/ /___  ________/_/  / ___/____  __  __
+ / __  / / __ \\/ ___/ _ \\/    \\__ \\/ __ \\/ / / /
+/ /_/ / / /_/ / /  /  __/    ___/ / /_/ / /_/ / 
+/_____/_/\\____/_/   \\___/____/____/\\____/\\__, /  
+                      /_____/           /____/   `}
+          </pre>
+          
+          <div className={styles.prompt}>
+            <span className={styles.promptSymbol}>$</span>
+            <span>authenticate --protocol=secure</span>
+          </div>
+
+          <form onSubmit={handleSubmit} className={styles.form}>
+            <div className={styles.field}>
+              <label className={styles.label}>email</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputPrompt}>~</span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="user@domain.net"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={styles.input}
+                />
+              </div>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>password</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputPrompt}>#</span>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={styles.input}
+                />
+              </div>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>persona</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputPrompt}>&gt;</span>
+                <select
+                  value={persona}
+                  onChange={(e) => setPersona(e.target.value as Persona)}
+                  className={styles.input}
+                >
+                  <option value="architect">architect</option>
+                  <option value="citizen_developer">citizen_dev</option>
+                  <option value="security_engineer">sec_eng</option>
+                </select>
+              </div>
+            </div>
+
+            <Button type="submit" loading={status === "loading"} className={styles.execute}>
+              [ EXECUTE ]
+            </Button>
+          </form>
+
+          <div className={styles.note}>
+            <span className={styles.comment}># biometric and SSO modules disabled in this build</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

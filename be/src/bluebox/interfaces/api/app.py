@@ -32,6 +32,7 @@ from bluebox.modules.code_generation.application.generation_service import (
     TaskAlreadyRunningError,
 )
 from bluebox.modules.code_generation.application.runtime_sandbox import SandboxNotRunningError
+from bluebox.modules.code_generation.application.syntax_validator import GeneratedCodeSyntaxError
 from bluebox.modules.code_generation.application.workspace_manager import PathEscapeError
 from bluebox.modules.core_pipeline.application.checkpoint_service import CheckpointNotFoundError
 from bluebox.modules.core_pipeline.domain.exceptions import (
@@ -150,6 +151,7 @@ def create_app() -> FastAPI:
     @app.exception_handler(TechStackOptionNotFoundError)
     @app.exception_handler(PathEscapeError)
     @app.exception_handler(NoTechStackProfileError)
+    @app.exception_handler(GeneratedCodeSyntaxError)
     async def bad_request_handler(_: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=400, content={"error": str(exc)})
 

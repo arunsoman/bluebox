@@ -49,6 +49,7 @@ export class SocketClient {
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private manuallyClosed = false;
+  private authExpired = false;
   private sessionId: string | null = null;
   private token: string | null = null;
 
@@ -56,6 +57,7 @@ export class SocketClient {
     this.sessionId = sessionId;
     this.token = token;
     this.manuallyClosed = false;
+    this.authExpired = false;
     this.open();
   }
 
@@ -111,7 +113,7 @@ export class SocketClient {
 
     socket.onclose = () => {
       this.socket = null;
-      if (this.manuallyClosed) {
+      if (this.manuallyClosed || this.authExpired) {
         this.setStatus("closed");
         return;
       }
@@ -140,6 +142,11 @@ export class SocketClient {
     if (!frame.event) return;
     if (frame.event !== "LOG_EVENT") {
       wsLogger?.({ direction: "received", event: frame.event, payload: frame.payload });
+    }
+    if (frame.event === "AUTH_SESSION_EXPIRED") {
+      // The server closes the socket right after this frame — retrying with
+      // the same expired token would just repeat forever, so don't reconnect.
+      this.authExpired = true;
     }
     const handlers = this.listeners.get(frame.event);
     handlers?.forEach((handler) => handler(frame.payload));

@@ -6,9 +6,11 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   width?: number;
+  /** Optional footer action row (e.g. Cancel/Confirm buttons), right-aligned per §8.4. */
+  footer?: ReactNode;
 }
 
-export function Modal({ title, onClose, children, width = 480 }: ModalProps) {
+export function Modal({ title, onClose, children, width = 480, footer }: ModalProps) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -34,6 +36,7 @@ export function Modal({ title, onClose, children, width = 480 }: ModalProps) {
           </button>
         </div>
         <div className={styles.body}>{children}</div>
+        {footer ? <div className={styles.footer}>{footer}</div> : null}
       </div>
     </div>
   );

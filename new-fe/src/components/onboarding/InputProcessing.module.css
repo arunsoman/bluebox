@@ -1,43 +1,60 @@
 .page {
-  min-height: 100vh;
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: 24px;
 }
 
 .card {
-  width: 520px;
+  width: 100%;
+  max-width: 520px;
   background: var(--color-white);
   border: 1px solid var(--color-silver);
-  border-radius: 12px;
-  padding: 32px;
+  border-radius: var(--radius-lg);
+  padding: 40px;
   text-align: center;
+  box-shadow: var(--shadow-lg);
+  animation: scaleIn var(--motion-slow) var(--ease-standard);
 }
 
 .heading {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--color-ink);
-  margin: 16px 0;
+  margin: 20px 0 8px;
 }
 
 .waiting {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-slate);
 }
 
 .progressTrack {
-  height: 6px;
-  background: var(--color-silver);
-  border-radius: 3px;
+  height: 8px;
+  background: var(--color-silver-warm);
+  border-radius: 4px;
   overflow: hidden;
-  margin-bottom: 16px;
+  margin: 24px 0 20px;
+  position: relative;
 }
 
 .progressFill {
   height: 100%;
-  background: var(--color-frontend);
-  transition: width var(--motion-normal) var(--ease-standard);
+  background: linear-gradient(90deg, var(--color-frontend) 0%, #818cf8 100%);
+  border-radius: 4px;
+  transition: width var(--motion-slow) var(--ease-standard);
+  position: relative;
+  overflow: hidden;
+}
+
+.progressFill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 2s infinite;
 }
 
 .stepList {
@@ -47,24 +64,36 @@
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .step {
-  font-size: 13px;
+  font-size: 14px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--color-silver);
+  gap: 12px;
+  color: var(--color-slate);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  transition: all var(--motion-fast) var(--ease-standard);
 }
 
 .complete {
   color: var(--color-success);
+  background: var(--color-success-light);
+  font-weight: 500;
 }
 .active {
   color: var(--color-frontend);
+  background: var(--color-frontend-light);
+  font-weight: 600;
 }
 
 .stepIcon {
-  width: 16px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
 }

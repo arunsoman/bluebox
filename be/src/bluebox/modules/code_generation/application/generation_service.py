@@ -33,6 +33,7 @@ from typing import Any, Literal, Protocol
 
 from bluebox.modules.advisory.tech_stack.domain.tech_stack_profile import TechStackProfile
 from bluebox.modules.code_generation.application.codegen_service import CodeGenService
+from bluebox.modules.code_generation.application.syntax_validator import GeneratedCodeSyntaxError
 from bluebox.modules.code_generation.domain.generation_job import TaskGenerationStatus
 from bluebox.modules.code_generation.domain.workspace import (
     CodeGenError,
@@ -195,10 +196,15 @@ class ProjectCodeGenService:
                 project_id, node, tech_stack,
                 decision_entry_id=node.provenance.decision_entry_id,
                 checkpoint_id=node.provenance.checkpoint_id,
+                on_file_start=lambda file_path: self._on_file_start(project_id, file_path),
             )
         except asyncio.CancelledError:
             task_status.status = "cancelled"
             raise
+        except GeneratedCodeSyntaxError as exc:
+            task_status.status = "failed"
+            task_status.error = self._to_error(node, exc, recoverable=True, error_type="syntax")
+            return
         except LLMCallFailed as exc:
             task_status.status = "failed"
             task_status.error = self._to_error(node, exc, recoverable=True)
@@ -217,10 +223,22 @@ class ProjectCodeGenService:
             await self._broadcast(project_id, "CODE_TASK_STATUS", task_status.model_dump(mode="json"))
 
     @staticmethod
-    def _to_error(node: EngineeringTaskNode, exc: Exception, *, recoverable: bool) -> CodeGenError:
+    def _to_error(
+        node: EngineeringTaskNode,
+        exc: Exception,
+        *,
+        recoverable: bool,
+        error_type: Literal["syntax", "dependency", "template", "merge_conflict"] = "template",
+    ) -> CodeGenError:
         return CodeGenError(
             file_path=node.file_paths[0] if node.file_paths else node.node_id,
-            error_type="template", message=str(exc), recoverable=recoverable,
+            error_type=error_type, message=str(exc), recoverable=recoverable,
+        )
+
+    async def _on_file_start(self, project_id: str, file_path: str) -> None:
+        await self._broadcast(
+            project_id, "FILE_STATUS_CHANGED",
+            {"file_path": file_path, "old_status": "complete", "new_status": "generating"},
         )
 
     async def run_task(self, project_id: str, task_id: str) -> list[GeneratedFile]:
@@ -248,7 +266,13 @@ class ProjectCodeGenService:
                 project_id, node, tech_stack,
                 decision_entry_id=node.provenance.decision_entry_id,
                 checkpoint_id=node.provenance.checkpoint_id,
+                on_file_start=lambda file_path: self._on_file_start(project_id, file_path),
             )
+        except GeneratedCodeSyntaxError as exc:
+            task_status.status = "failed"
+            task_status.error = self._to_error(node, exc, recoverable=True, error_type="syntax")
+            await self._broadcast(project_id, "CODE_TASK_STATUS", task_status.model_dump(mode="json"))
+            raise
         except LLMCallFailed as exc:
             task_status.status = "failed"
             task_status.error = self._to_error(node, exc, recoverable=True)

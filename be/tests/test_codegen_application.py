@@ -1,10 +1,12 @@
 """Tests for code_generation/application/codegen_service.py."""
 
+import pytest
 from pydantic_ai.models.test import TestModel
 
 from bluebox.modules.advisory.tech_stack.domain.tech_stack_profile import TechStackProfile
 from bluebox.modules.advisory.tech_stack.llm.responses import TechStackComponent
 from bluebox.modules.code_generation.application.codegen_service import CodeGenService, infer_commands
+from bluebox.modules.code_generation.application.syntax_validator import GeneratedCodeSyntaxError
 from bluebox.modules.code_generation.application.workspace_manager import WorkspaceManager
 from bluebox.modules.code_generation.llm import agents as codegen_agents
 from bluebox.modules.code_generation.llm.requests import CodeFileGenerationRequest
@@ -111,3 +113,44 @@ async def test_generate_task_files_threads_existing_files_context(tmp_path, monk
     )
     assert "EXTEND, DO NOT OVERWRITE" in requests[2].existing_files_context
     assert "class User" in requests[2].existing_files_context
+
+
+async def test_generate_task_files_aborts_on_invalid_syntax_without_writing(tmp_path, monkeypatch) -> None:
+    repo = InMemoryWorkspaceRepository()
+    workspace = WorkspaceManager(repo, root=tmp_path)
+    service = CodeGenService(workspace)
+
+    async def fake_generate_code_file(request: CodeFileGenerationRequest) -> GeneratedFileDraft:
+        if request.file_path == "backend/a.py":
+            return GeneratedFileDraft(file_path=request.file_path, content="class User:\n    pass\n", language="python")
+        return GeneratedFileDraft(file_path=request.file_path, content="def foo(:\n", language="python")
+
+    monkeypatch.setattr(codegen_agents, "generate_code_file", fake_generate_code_file)
+
+    with pytest.raises(GeneratedCodeSyntaxError):
+        await service.generate_task_files(
+            _PROJECT, _task_with_files("TASK-1", "backend/a.py", "backend/b.py"), _python_profile(),
+            decision_entry_id="DEC-1", checkpoint_id="CKPT-1",
+        )
+
+    stored = {f.file_path for f in repo.list_files(_PROJECT)}
+    assert stored == {"backend/a.py"}
+
+
+async def test_generate_task_files_calls_on_file_start_per_file(tmp_path) -> None:
+    repo = InMemoryWorkspaceRepository()
+    workspace = WorkspaceManager(repo, root=tmp_path)
+    service = CodeGenService(workspace)
+
+    started: list[str] = []
+
+    async def on_file_start(file_path: str) -> None:
+        started.append(file_path)
+
+    with codegen_agents.code_file_generation_agent.override(model=TestModel()):
+        await service.generate_task_files(
+            _PROJECT, _task_with_files("TASK-1", "backend/a.py", "backend/b.py"), _python_profile(),
+            decision_entry_id="DEC-1", checkpoint_id="CKPT-1", on_file_start=on_file_start,
+        )
+
+    assert started == ["backend/a.py", "backend/b.py"]

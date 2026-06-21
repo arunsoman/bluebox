@@ -24,6 +24,9 @@ class NodeService:
     def __init__(self, nodes: NodeRepository) -> None:
         self._nodes = nodes
 
+    def list_by_project(self, project_id: str) -> list[Node]:
+        return self._nodes.list_by_project(project_id)
+
     def get(self, project_id: str, node_id: str) -> Node:
         node = self._nodes.get(project_id, node_id)
         if node is None:

@@ -1,22 +1,22 @@
-.container {
+.placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--color-slate);
-  padding: 24px;
-  text-align: center;
+  gap: 8px;
+  color: var(--term-fg-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
-.name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-ink);
-  margin: 0 0 4px;
-}
+.bracket { color: var(--term-border-bright); opacity: 0.5; }
+
+.name { color: var(--term-fg-dim); letter-spacing: 0.05em; }
 
 .note {
-  font-size: 12px;
-  margin: 0;
+  font-size: 10px;
+  color: var(--term-fg-dim);
+  opacity: 0.4;
+  font-style: italic;
 }

@@ -44,31 +44,27 @@
 }
 
 .riskBadge {
+  composes: badge from "../../styles/primitives.module.css";
   font-size: 10px;
-  font-weight: 600;
   padding: 2px 8px;
-  border-radius: 10px;
 }
 .low {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--color-success);
+  composes: badgeSuccess from "../../styles/primitives.module.css";
 }
 .medium {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--color-warning);
+  composes: badgeWarning from "../../styles/primitives.module.css";
 }
 .high {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--color-warning);
+  composes: badgeWarning from "../../styles/primitives.module.css";
 }
 .critical {
-  background: var(--color-error-bg);
-  color: var(--color-error);
+  composes: badgeError from "../../styles/primitives.module.css";
 }
 
 .autoBadge {
+  composes: badge badgeSuccess from "../../styles/primitives.module.css";
   font-size: 10px;
-  color: var(--color-success);
+  padding: 2px 8px;
 }
 
 .downstream {

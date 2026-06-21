@@ -58,7 +58,19 @@ export function DeleteNodeModal() {
   };
 
   return (
-    <Modal title={`⚠️ Delete Node: ${active.nodeId}`} onClose={close} width={480}>
+    <Modal
+      title={`⚠️ Delete Node: ${active.nodeId}`}
+      onClose={close}
+      width={480}
+      footer={
+        <>
+          <Button variant="secondary" onClick={close}>Cancel</Button>
+          <Button variant="danger" loading={deleting} disabled={confirmText !== expectedConfirm || !rationale.trim()} onClick={handleConfirm}>
+            Confirm {action === "delete" ? "Delete" : "Deactivate"}
+          </Button>
+        </>
+      }
+    >
       {downstream.length > 0 && (
         <div className={styles.section}>
           <h3 className={styles.sectionTitle}>This node has {downstream.length} downstream dependencies</h3>
@@ -96,13 +108,6 @@ export function DeleteNodeModal() {
       <div className={styles.field}>
         <label className={styles.label}>Type "{expectedConfirm}" to confirm</label>
         <input className={styles.input} value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-        <Button variant="secondary" onClick={close}>Cancel</Button>
-        <Button variant="danger" loading={deleting} disabled={confirmText !== expectedConfirm || !rationale.trim()} onClick={handleConfirm}>
-          Confirm {action === "delete" ? "Delete" : "Deactivate"}
-        </Button>
       </div>
     </Modal>
   );

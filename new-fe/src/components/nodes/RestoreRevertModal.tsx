@@ -54,7 +54,19 @@ export function RestoreRevertModal({
   }
 
   return (
-    <Modal title="↩️ Revert to Previous Version" onClose={onClose} width={520}>
+    <Modal
+      title="↩️ Revert to Previous Version"
+      onClose={onClose}
+      width={520}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="danger" loading={reverting} disabled={confirmText !== expectedConfirm} onClick={handleConfirm}>
+            Confirm Revert
+          </Button>
+        </>
+      }
+    >
       <div className={styles.readonly}>Current: {currentEntry.entry_id} ({currentEntry.summary})</div>
       <div className={styles.readonly}>Revert to: {targetEntry.entry_id} ({targetEntry.summary})</div>
 
@@ -79,13 +91,6 @@ export function RestoreRevertModal({
       <div className={styles.field}>
         <label className={styles.label}>Type "{expectedConfirm}" to confirm</label>
         <input className={styles.input} value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button variant="danger" loading={reverting} disabled={confirmText !== expectedConfirm} onClick={handleConfirm}>
-          Confirm Revert
-        </Button>
       </div>
     </Modal>
   );

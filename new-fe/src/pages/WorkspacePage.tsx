@@ -6,7 +6,10 @@ import { PanelPlaceholder } from "@/components/shell/PanelPlaceholder";
 import { Spinner } from "@/components/common/Spinner";
 import { useEnsurePipelineConnection } from "@/hooks/useEnsurePipelineConnection";
 import { socketClient } from "@/ws/socketClient";
+import { useLayout } from "@/components/layout/LayoutContext";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ProjectsPanel } from "@/components/dashboard/ProjectsPanel";
+import { PRDPanel } from "@/components/onboarding/PRDPanel";
 import { SteeringPanelView } from "@/components/steering/SteeringPanelView";
 import { FileExplorer } from "@/components/files/FileExplorer";
 import { EditorPanel } from "@/components/editor/EditorPanel";
@@ -30,9 +33,11 @@ import { useMergeConflictStore } from "@/stores/mergeConflictStore";
 import { useDeploymentStore } from "@/stores/deploymentStore";
 import { useCheckpointRestoreStore } from "@/stores/checkpointRestoreStore";
 import { useLogViewerStore } from "@/stores/logViewerStore";
+import styles from "./WorkspacePage.module.css";
 
 export function WorkspacePage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const { setConfig } = useLayout();
   const { ready, error } = useEnsurePipelineConnection(projectId);
   const [projectName, setProjectName] = useState<string | null>(null);
   const pendingSteering = usePipelineStore((s) => s.pipelineState?.pending_steering ?? false);
@@ -55,6 +60,7 @@ export function WorkspacePage() {
   const checkpointsOpen = useCheckpointRestoreStore((s) => s.open);
   const hideCheckpoints = useCheckpointRestoreStore((s) => s.hide);
 
+  // Load project name
   useEffect(() => {
     if (!projectId) return;
     projectsApi.get(projectId).then((p) => setProjectName(p.project_name));
@@ -64,6 +70,41 @@ export function WorkspacePage() {
     if (!projectId) return;
     useLogViewerStore.getState().setProjectId(projectId);
   }, [projectId]);
+
+  // Set global header/footer context for workspace
+  useEffect(() => {
+    if (!projectName) return;
+    setConfig({
+      headerCenter: (
+        <span className={styles.headerContext}>
+          <span className={styles.projectName}>{projectName}</span>
+          <span className={styles.divider}>│</span>
+          <span className={styles.stage}>Stage {currentState ?? "—"}</span>
+        </span>
+      ),
+      headerRight: (
+        <span className={styles.headerRight}>
+          <span className={styles.trustBadge}>PARANOID</span>
+        </span>
+      ),
+      footerLeft: <span className={styles.modeBadge}>NORMAL</span>,
+      footerCenter: (
+        <>
+          <span className={styles.hint}>^P Command</span>
+          <span className={styles.hint}>^S Save</span>
+          <span className={styles.hint}>^K Checkpoint</span>
+        </>
+      ),
+      footerRight: (
+        <>
+          <span className={styles.info}>Ln 42, Col 18</span>
+          <span className={styles.divider}>│</span>
+          <span className={styles.info}>v2.4.0</span>
+        </>
+      ),
+    });
+    return () => setConfig({});
+  }, [projectName, currentState, setConfig]);
 
   useEffect(() => {
     if (currentState === "FINAL_GATE") showGate();
@@ -88,10 +129,19 @@ export function WorkspacePage() {
     return () => unsubscribers.forEach((u) => u());
   }, [ready, showMergeConflict]);
 
-  if (!ready || projectName === null) {
+  if (projectId && (!ready || projectName === null)) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: 64 }}>
-        {error ? <p>{error}</p> : <Spinner />}
+      <div className={styles.loadingPage}>
+        <div className={styles.loadingBox}>
+          {error ? (
+            <span className={styles.errorText}>{error}</span>
+          ) : (
+            <>
+              <Spinner />
+              <span className={styles.loadingText}>establishing uplink...</span>
+            </>
+          )}
+        </div>
       </div>
     );
   }
@@ -99,13 +149,17 @@ export function WorkspacePage() {
   return (
     <>
       <AppShell
-        projectName={projectName}
+        key={projectId ?? "no-project"}
+        initialCenterTab={projectId ? "prd" : "projects"}
         chatPanel={<ChatPanel />}
         fileExplorer={<FileExplorer />}
         centerPanels={{
-          editor: <EditorPanel />,
+          projects: <ProjectsPanel />,
+          prd: <PRDPanel />,
           steering: <SteeringPanelView />,
           graph: <BlueprintGraph />,
+          "code-gen": <CodeGenerationPanel />,
+          editor: <EditorPanel />,
         }}
         centerTabBadge={{ steering: pendingSteering }}
         rightPanel={<PanelPlaceholder name="Live Preview" note="Deferred — out of scope for this pass." />}
@@ -113,7 +167,6 @@ export function WorkspacePage() {
           terminal: <PanelPlaceholder name="Terminal" note="Deferred — out of scope for this pass." />,
           "test-results": <PanelPlaceholder name="Test Results" note="Deferred — out of scope for this pass." />,
           "audit-trail": <AuditPanel />,
-          "code-gen": <CodeGenerationPanel />,
         }}
       />
       <NodeEditorModal />

@@ -1,0 +1,309 @@
+/*
+ * Shared visual primitives. A component's own .module.css composes one of
+ * these instead of redefining the same look — that's what keeps every
+ * "card" (etc.) pixel- and animation-identical across the app instead of
+ * drifting (e.g. border-radius 6px vs 8px, or a locally redefined
+ * @keyframes panelEnter missing the scale() half of the global one).
+ *
+ * Usage from a sibling component's .module.css:
+ *   .myThing {
+ *     composes: card cardCorners from "../../styles/primitives.module.css";
+ *     // ...component-specific layout/sizing only below
+ *   }
+ */
+
+.card {
+  position: relative;
+  background: var(--color-white);
+  border: 1px solid var(--color-silver);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-level-1);
+  animation: cardEnter var(--duration-normal) var(--ease-enter) both;
+}
+
+/*
+ * Defined here (not reused from global.css's panelEnter) on purpose: a
+ * CSS Modules file that references a bare keyframe name with no matching
+ * @keyframes block *in the same file* gets that name silently hashed to
+ * something with no definition, so the animation no-ops with no error.
+ * Composing this class is what propagates the *same* hashed keyframe
+ * along with it, so every consumer actually animates, identically.
+ */
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Opt-in decorative corner brackets — compose alongside .card where wanted */
+.cardCorners {
+  position: relative;
+}
+
+.cardCorners::before,
+.cardCorners::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--color-layer-frontend);
+  border-style: solid;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 2;
+}
+.cardCorners::before { top: 4px; left: 4px; border-width: 1px 0 0 1px; }
+.cardCorners::after { bottom: 4px; right: 4px; border-width: 0 1px 1px 0; }
+
+/*
+ * ── Buttons (doc/uiux_specification.agent.final.md §8.1) ──
+ * .btnBase carries everything every variant/size shares; compose it
+ * alongside exactly one variant (btnPrimary/btnSecondary/btnGhost/
+ * btnDanger) and exactly one size (btnSm/btnMd/btnLg) — e.g.
+ *   composes: btnBase btnPrimary btnMd from "../../styles/primitives.module.css";
+ */
+.btnBase {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.btnBase:active:not(:disabled) {
+  filter: brightness(0.9);
+  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.1);
+}
+
+.btnBase:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btnPrimary {
+  background: var(--color-frontend);
+  color: var(--color-on-accent);
+}
+.btnPrimary:hover:not(:disabled) { filter: brightness(1.1); }
+
+.btnSecondary {
+  background: transparent;
+  color: var(--color-ink);
+  border: 1px solid var(--color-silver);
+}
+.btnSecondary:hover:not(:disabled) { background: var(--color-cloud); }
+
+.btnGhost {
+  background: transparent;
+  color: var(--color-ink);
+  border: none;
+}
+.btnGhost:hover:not(:disabled) { background: var(--color-cloud); }
+
+.btnDanger {
+  background: var(--color-error);
+  color: var(--color-on-accent);
+}
+.btnDanger:hover:not(:disabled) { filter: brightness(1.1); }
+
+.btnSm { height: 32px; padding: 0 var(--space-3); font-size: 12px; }
+.btnMd { height: 40px; padding: 0 var(--space-4); font-size: 14px; }
+.btnLg { height: 48px; padding: 0 var(--space-6); font-size: 16px; }
+
+/* Icon-only modifier: square instead of horizontally padded */
+.btnIconOnly.btnSm { width: 32px; padding: 0; }
+.btnIconOnly.btnMd { width: 40px; padding: 0; }
+.btnIconOnly.btnLg { width: 48px; padding: 0; }
+
+.btnSpinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: currentColor;
+  animation: btnSpin 600ms linear infinite;
+}
+
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
+
+/*
+ * ── Badges (doc/uiux_specification.agent.final.md §8.5, §7.1.4) ──
+ * composes: badge badgeSuccess from "../../styles/primitives.module.css";
+ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badgeSuccess { background: var(--color-success-dim); color: var(--color-success); }
+.badgeWarning { background: var(--color-warning-dim); color: var(--color-warning); }
+.badgeError { background: var(--color-error-dim); color: var(--color-error); }
+.badgeInfo { background: var(--color-info-dim); color: var(--color-info); }
+.badgeNeutral { background: var(--color-neutral-dim); color: var(--color-neutral); }
+
+/* Trust mode badge: fixed 96x24 pill, §7.1.4 */
+.badgeTrust {
+  composes: badge;
+  width: 96px;
+  height: 24px;
+  justify-content: center;
+  font-size: 11px;
+}
+.badgeTrustParanoid { background: var(--color-trust-paranoid-bg); color: var(--color-trust-paranoid-text); }
+.badgeTrustBalanced { background: var(--color-trust-balanced-bg); color: var(--color-trust-balanced-text); }
+.badgeTrustAutopilot { background: var(--color-trust-autopilot-bg); color: var(--color-trust-autopilot-text); }
+
+/*
+ * ── Form fields (doc/uiux_specification.agent.final.md §8.2) ──
+ * This formalizes the pattern already shared verbatim by 13 components via
+ * nodes/EditorForms.module.css — that file composes from here now, so it
+ * stays the one place most form-field consumers import from, while this
+ * is the one place that actually defines the look.
+ * composes: field from "../../styles/primitives.module.css";
+ */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-slate);
+}
+
+.fieldInput {
+  font: inherit;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-silver);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-ink);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.fieldInput:hover { border-color: var(--color-slate); }
+.fieldInput:focus {
+  outline: none;
+  border-color: var(--color-frontend);
+  box-shadow: var(--focus-ring-frontend);
+}
+.fieldInput::placeholder { color: var(--color-slate); }
+
+.fieldInputError {
+  border-color: var(--color-error);
+  box-shadow: var(--focus-ring-error);
+}
+
+/*
+ * ── Modal (doc/uiux_specification.agent.final.md §8.4) ──
+ * common/Modal.tsx composes all of these; a caller that needs custom
+ * modal-like chrome (AiConfigModal, LogViewerModal today) should compose
+ * the same classes rather than hand-rolling an equivalent.
+ */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalDialog {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
+  animation: modalEnter var(--duration-normal) var(--ease-enter) both;
+}
+
+@keyframes modalEnter {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-silver);
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.modalCloseButton {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--color-slate);
+}
+
+.modalBody {
+  padding: var(--space-4);
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-silver);
+}
+
+/*
+ * ── Tabs (doc/uiux_specification.agent.final.md §8.6) ──
+ * Underline style: active tab gets a 2px Frontend bottom border, inactive
+ * tabs are plain Slate text. (graph/BlueprintGraph and audit/AuditPanel
+ * currently use a filled-pill toggle instead — a different control, not
+ * just a differently-named tab — left alone for now along with the rest
+ * of their separate light-theme vocabulary, see plan's deferred items.)
+ */
+.tabBar {
+  display: flex;
+  border-bottom: 1px solid var(--color-silver);
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--color-slate);
+  border-bottom: 2px solid transparent;
+}
+
+.tabActive {
+  color: var(--color-ink);
+  font-weight: 500;
+  border-bottom-color: var(--color-frontend);
+}

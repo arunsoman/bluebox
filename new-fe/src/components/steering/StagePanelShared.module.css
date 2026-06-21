@@ -45,7 +45,7 @@
 }
 .activeMode {
   background: var(--color-frontend) !important;
-  color: var(--color-white) !important;
+  color: var(--color-on-accent) !important;
   border-color: var(--color-frontend) !important;
 }
 

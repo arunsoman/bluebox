@@ -35,54 +35,52 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
   }
 
   return (
-    <Modal title="New project" onClose={onClose} width={420}>
+    <Modal title="new-project" onClose={onClose} width={440}>
       <form onSubmit={handleSubmit} className={styles.form}>
-        <label className={styles.label} htmlFor="project_name">
-          Project name
-        </label>
-        <input
-          id="project_name"
-          required
-          maxLength={100}
-          value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
-          className={styles.input}
-        />
+        <label className={styles.label} htmlFor="project_name">project_name</label>
+        <div className={styles.inputWrap}>
+          <input
+            id="project_name"
+            required
+            maxLength={100}
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            className={styles.input}
+            placeholder="my-awesome-project"
+          />
+        </div>
 
-        <label className={styles.label} htmlFor="description">
-          Description (optional)
-        </label>
-        <textarea
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className={styles.textarea}
-        />
+        <label className={styles.label} htmlFor="description">description</label>
+        <div className={styles.inputWrap}>
+          <textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className={styles.textarea}
+            placeholder="# optional description"
+          />
+        </div>
 
-        <label className={styles.label} htmlFor="template">
-          Template
-        </label>
-        <select
-          id="template"
-          value={templateId ?? ""}
-          onChange={(e) =>
-            setTemplateId((e.target.value || undefined) as CreateProjectRequest["template_id"])
-          }
-          className={styles.input}
-        >
-          {TEMPLATES.map((t) => (
-            <option key={t.label} value={t.id ?? ""}>
-              {t.label}
-            </option>
-          ))}
-        </select>
+        <label className={styles.label} htmlFor="template">template</label>
+        <div className={styles.inputWrap}>
+          <select
+            id="template"
+            value={templateId ?? ""}
+            onChange={(e) => setTemplateId((e.target.value || undefined) as CreateProjectRequest["template_id"])}
+            className={styles.input}
+          >
+            {TEMPLATES.map((t) => (
+              <option key={t.label} value={t.id ?? ""}>{t.label}</option>
+            ))}
+          </select>
+        </div>
 
         <div className={styles.actions}>
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+          <Button type="button" variant="secondary" onClick={onClose} className={styles.cancel}>
+            [ CANCEL ]
           </Button>
-          <Button type="submit" loading={submitting}>
-            Create project
+          <Button type="submit" loading={submitting} className={styles.create}>
+            [ CREATE ]
           </Button>
         </div>
       </form>

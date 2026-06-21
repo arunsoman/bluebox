@@ -1,0 +1,88 @@
+.loadingPage {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--term-bg);
+}
+
+.loadingBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 56px;
+  background: var(--term-bg-panel);
+  border: 1px solid var(--term-border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-3d-lg);
+  position: relative;
+}
+
+.loadingBox::before,
+.loadingBox::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: var(--color-primary);
+  border-style: solid;
+  opacity: 0.3;
+}
+.loadingBox::before { top: 6px; left: 6px; border-width: 1px 0 0 1px; }
+.loadingBox::after { bottom: 6px; right: 6px; border-width: 0 1px 1px 0; }
+
+.loadingText {
+  font-size: 12px;
+  color: var(--color-primary);
+  letter-spacing: 0.15em;
+  font-family: var(--font-mono);
+  animation: blink 2s infinite;
+}
+
+.errorText { color: var(--color-error); font-size: 13px; font-family: var(--font-mono); }
+
+/* ── Header context injected by workspace ── */
+.headerContext { display: flex; align-items: center; gap: 10px; }
+
+.projectName { color: var(--term-fg-bright); font-family: var(--font-mono); font-size: 12px; font-weight: 600; }
+
+.divider { color: var(--term-border-bright); font-family: var(--font-mono); }
+
+.stage { color: var(--color-secondary); font-family: var(--font-mono); font-size: 12px; }
+
+.headerRight { display: flex; align-items: center; gap: 10px; }
+
+.trustBadge {
+  padding: 1px 8px;
+  background: var(--color-error-dim);
+  color: var(--color-error);
+  border-radius: 2px;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+}
+
+.modeBadge {
+  padding: 1px 8px;
+  background: var(--color-primary-dim);
+  color: var(--color-primary);
+  border-radius: 2px;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+  text-shadow: 0 0 6px var(--color-primary-glow);
+  border: 1px solid rgba(0, 255, 157, 0.2);
+}
+
+.hint { color: var(--term-fg-dim); font-size: 10px; font-family: var(--font-mono); }
+
+.info { color: var(--term-fg-dim); font-size: 10px; font-family: var(--font-mono); }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

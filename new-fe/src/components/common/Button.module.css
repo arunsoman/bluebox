@@ -1,56 +1,27 @@
-.button {
-  height: 44px;
-  padding: 0 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: background-color var(--motion-fast) var(--ease-standard);
+.btnBase {
+  composes: btnBase from "../../styles/primitives.module.css";
 }
-
-.button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.btnPrimary {
+  composes: btnPrimary from "../../styles/primitives.module.css";
 }
-
-.primary {
-  background: var(--color-frontend);
-  color: var(--color-white);
+.btnSecondary {
+  composes: btnSecondary from "../../styles/primitives.module.css";
 }
-.primary:hover:not(:disabled) {
-  background: var(--color-frontend-hover);
+.btnGhost {
+  composes: btnGhost from "../../styles/primitives.module.css";
 }
-
-.secondary {
-  background: transparent;
-  color: var(--color-slate);
-  border: 1px solid var(--color-silver);
+.btnDanger {
+  composes: btnDanger from "../../styles/primitives.module.css";
 }
-.secondary:hover:not(:disabled) {
-  background: var(--color-cloud);
+.btnSm {
+  composes: btnSm from "../../styles/primitives.module.css";
 }
-
-.danger {
-  background: var(--color-error);
-  color: var(--color-white);
+.btnMd {
+  composes: btnMd from "../../styles/primitives.module.css";
 }
-
-.spinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: var(--color-white);
-  animation: spin 1s linear infinite;
+.btnLg {
+  composes: btnLg from "../../styles/primitives.module.css";
 }
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.btnSpinner {
+  composes: btnSpinner from "../../styles/primitives.module.css";
 }

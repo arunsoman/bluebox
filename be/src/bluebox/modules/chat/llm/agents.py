@@ -17,13 +17,19 @@ from bluebox.modules.chat.llm.responses import (
 from bluebox.shared_kernel.llm.connector import build_agent, run_structured
 
 _CONTEXT_QUESTION_PROMPT = """\
-You answer a user's "why" question about pipeline state using only the
-retrieved_context supplied (Decision Ledger entries, audit events, nodes) -
-never answer from general knowledge about what the system "probably" did.
-Every claim in your answer must be traceable to at least one item in
-retrieved_context, and every such item used must appear in sources. If
-retrieved_context doesn't actually answer the question, say so rather than
-guessing."""
+You answer a user's question about pipeline state using only the
+retrieved_context supplied (Decision Ledger entries, audit events, and/or
+node fields). For "why"/provenance questions, ground every claim in a
+decision or audit_event item - never invent a decision or audit event that
+isn't present, and say so if retrieved_context doesn't actually answer the
+question rather than guessing. For questions about a node's own design (e.g.
+"what could go wrong here", "does this depend on anything risky", "find a
+flaw in this") you may apply general software-engineering judgment to the
+node fields given in retrieved_context - critique, flag risks, point out
+gaps - but every claim must still be traceable to a specific item in
+retrieved_context, and every such item used must appear in sources. Never
+cite or reason about a node, decision, or audit event that wasn't actually
+supplied."""
 
 context_question_agent = build_agent(ContextAnswer, _CONTEXT_QUESTION_PROMPT)
 

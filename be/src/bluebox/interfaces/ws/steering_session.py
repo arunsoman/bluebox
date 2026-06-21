@@ -10,11 +10,13 @@ completing, never a scripted `asyncio.sleep` timeline. Frame format is
 Scope (deliberately not the full SS10 event table - see the plan): handles
 `AUTH_SESSION_INIT`, `USER_INPUT` (onboarding, auto-advancing into the first
 stage), `STEERING_ACTION` (accept only - same restriction as the REST
-router), `CHAT_MESSAGE`, `CONTEXT_QUESTION`, and `NODE_MANIPULATION`
-(delete/restore only - `NodeService` doesn't implement create/update).
-Every other client event from SS10.1 (RBAC_STEERING_ACTION, HOSTING_SELECTION,
-GRAPH_NODE_SELECT, ...) is out of scope for this pass and is acknowledged
-with an `ERROR` frame rather than silently ignored.
+router), `CHAT_MESSAGE`, `CONTEXT_QUESTION`, `NODE_MANIPULATION`
+(delete/restore only - `NodeService` doesn't implement create/update), and
+`WHAT_IF_SIMULATE`/`WHAT_IF_COMMIT` (Blueprint Graph What-If mode - see
+`modules/graph/application/what_if_service.py`). Every other client event
+from SS10.1 (RBAC_STEERING_ACTION, HOSTING_SELECTION, GRAPH_NODE_SELECT,
+...) is out of scope for this pass and is acknowledged with an `ERROR`
+frame rather than silently ignored.
 """
 
 from typing import Any
@@ -28,6 +30,7 @@ from bluebox.interfaces.api.deps import (
     get_node_service,
     get_onboarding_service,
     get_steering_service,
+    get_what_if_service,
 )
 from bluebox.interfaces.stage_advance import (
     FIRST_GENERATIVE_STAGE as _FIRST_GENERATIVE_STAGE,
@@ -38,6 +41,10 @@ from bluebox.interfaces.stage_advance import (
 )
 from bluebox.interfaces.ws.connection_registry import connection_registry
 from bluebox.modules.governance.application.node_service import NodeNotFoundError
+from bluebox.modules.graph.application.what_if_service import (
+    WhatIfCommitBlockedError,
+    WhatIfSimulationNotFoundError,
+)
 from bluebox.shared_kernel.infrastructure.in_memory import app_state
 from bluebox.shared_kernel.llm.connector import LLMCallFailed
 from bluebox.shared_kernel.observability.log_bus import log_bus
@@ -248,12 +255,52 @@ async def _handle_node_manipulation(websocket: WebSocket, project_id: str, paylo
     })
 
 
+async def _handle_what_if_simulate(websocket: WebSocket, project_id: str, payload: dict) -> None:
+    what_if_service = get_what_if_service()
+    try:
+        result = what_if_service.simulate(project_id, payload.get("node_id", ""), payload.get("proposed_changes", {}))
+    except NodeNotFoundError as exc:
+        await _send(websocket, project_id, "ERROR", {
+            "error_code": "VAL-E01", "message": str(exc), "recoverable": True,
+            "action_options": [], "context": None,
+        })
+        return
+    await _send(websocket, project_id, "WHAT_IF_RESULT", result)
+
+
+async def _handle_what_if_commit(websocket: WebSocket, project_id: str, payload: dict) -> None:
+    what_if_service = get_what_if_service()
+    try:
+        node = what_if_service.commit(
+            project_id, payload.get("simulation_id", ""), payload.get("proposed_changes", {})
+        )
+    except (NodeNotFoundError, WhatIfSimulationNotFoundError) as exc:
+        await _send(websocket, project_id, "ERROR", {
+            "error_code": "VAL-E01", "message": str(exc), "recoverable": True,
+            "action_options": [], "context": None,
+        })
+        return
+    except WhatIfCommitBlockedError as exc:
+        await _send(websocket, project_id, "ERROR", {
+            "error_code": "VAL-E01", "message": "; ".join(exc.reasons), "recoverable": True,
+            "action_options": [], "context": None,
+        })
+        return
+
+    await _send(websocket, project_id, "NODE_UPDATED", {
+        "node_id": node.node_id, "node_type": node.node_type, "change_type": "what_if_commit",
+        "new_data": node.model_dump(mode="json"),
+    })
+
+
 _HANDLERS = {
     "USER_INPUT": _handle_user_input,
     "STEERING_ACTION": _handle_steering_action,
     "CHAT_MESSAGE": _handle_chat_message,
     "CONTEXT_QUESTION": _handle_context_question,
     "NODE_MANIPULATION": _handle_node_manipulation,
+    "WHAT_IF_SIMULATE": _handle_what_if_simulate,
+    "WHAT_IF_COMMIT": _handle_what_if_commit,
 }
 
 

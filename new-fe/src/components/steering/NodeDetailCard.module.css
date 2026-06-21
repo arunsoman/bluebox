@@ -17,9 +17,21 @@
 }
 
 .badge {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-slate);
+  composes: badge from "../../styles/primitives.module.css";
+  font-size: 10px;
+  padding: 2px 8px;
+}
+.low {
+  composes: badgeSuccess from "../../styles/primitives.module.css";
+}
+.medium {
+  composes: badgeWarning from "../../styles/primitives.module.css";
+}
+.high {
+  composes: badgeWarning from "../../styles/primitives.module.css";
+}
+.critical {
+  composes: badgeError from "../../styles/primitives.module.css";
 }
 
 .description {

@@ -31,14 +31,8 @@ export function RequireAuth() {
     }
   });
 
-  if (!accessToken) {
-    return <Navigate to="/login" replace />;
-  }
-  if (status === "loading" || status === "idle") {
-    return null;
-  }
-  if (status === "error") {
-    return <Navigate to="/login" replace />;
-  }
+  if (!accessToken) return <Navigate to="/login" replace />;
+  if (status === "loading" || status === "idle") return null;
+  if (status === "error") return <Navigate to="/login" replace />;
   return <Outlet />;
 }

@@ -3,9 +3,9 @@ import { projectsApi } from "@/api/endpoints/projects";
 import { usePipelineStore } from "@/stores/pipelineStore";
 
 /**
- * Re-establishes the WS session for a project if the user navigated to an
- * onboarding/workspace route directly (deep link or page refresh) rather
- * than via the dashboard's "open" flow, which already calls resume+connect.
+ * Re-establishes the WS session for a project if the user navigated to the
+ * workspace route directly (deep link or page refresh) rather than via the
+ * dashboard's "open" flow, which already calls resume+connect.
  */
 export function useEnsurePipelineConnection(projectId: string | undefined): {
   ready: boolean;

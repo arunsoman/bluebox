@@ -1,0 +1,57 @@
+.footer {
+  height: var(--footer-height);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--term-bg-footer);
+  border-top: 1px solid var(--term-border);
+  position: relative;
+  z-index: 100;
+}
+
+/* Top rim light */
+.footer::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 157, 0.08), transparent);
+}
+
+.footerLeft, .footerCenter, .footerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modeBadge {
+  padding: 1px 8px;
+  background: var(--color-primary-dim);
+  color: var(--color-primary);
+  border-radius: 2px;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+  text-shadow: 0 0 6px var(--color-primary-glow);
+  border: 1px solid rgba(0, 255, 157, 0.2);
+}
+
+.hint {
+  color: var(--term-fg-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.info {
+  color: var(--term-fg-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.divider {
+  color: var(--term-border-bright);
+  font-family: var(--font-mono);
+}

@@ -7,8 +7,11 @@ entity) into the LLM-boundary `EngineeringTaskCandidate` shape the
 every result to real disk via `WorkspaceManager`.
 """
 
+from collections.abc import Awaitable, Callable
+
 from bluebox.modules.advisory.tech_stack.domain.tech_stack_profile import TechStackProfile
 from bluebox.modules.code_generation.application import project_context
+from bluebox.modules.code_generation.application.syntax_validator import validate_syntax
 from bluebox.modules.code_generation.application.workspace_manager import WorkspaceManager
 from bluebox.modules.code_generation.domain.workspace import FileProvenance, GeneratedFile
 from bluebox.modules.code_generation.llm import agents as codegen_agents
@@ -19,6 +22,8 @@ from bluebox.modules.core_pipeline.llm.responses import EngineeringTaskCandidate
 from bluebox.shared_kernel.domain.node import EngineeringTaskNode
 
 _PYTHON_KEYWORDS = ("python", "fastapi", "django", "flask")
+
+OnFileStart = Callable[[str], Awaitable[None]]
 
 
 def _to_candidate(task: EngineeringTaskNode) -> EngineeringTaskCandidate:
@@ -68,6 +73,7 @@ class CodeGenService:
         *,
         decision_entry_id: str,
         checkpoint_id: str,
+        on_file_start: OnFileStart | None = None,
     ) -> list[GeneratedFile]:
         candidate = _to_candidate(task)
         summary = _tech_stack_summary(tech_stack)
@@ -80,6 +86,8 @@ class CodeGenService:
 
         generated: list[GeneratedFile] = []
         for file_path in task.file_paths:
+            if on_file_start is not None:
+                await on_file_start(file_path)
             existing_files = self._workspace.list_files(project_id)
             existing_files_context = project_context.build_existing_files_context(existing_files, file_path)
             draft = await codegen_agents.generate_code_file(
@@ -91,6 +99,7 @@ class CodeGenService:
                     existing_files_context=existing_files_context,
                 )
             )
+            validate_syntax(draft.file_path, draft.content)
             generated.append(
                 self._workspace.write(
                     project_id,

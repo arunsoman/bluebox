@@ -26,7 +26,15 @@ from bluebox.modules.chat.llm.requests import (
     RetrievedContextItem,
 )
 from bluebox.modules.chat.llm.responses import ContextAnswer, NodeManipulationAction
+from bluebox.modules.governance.application import node_relations
 from bluebox.modules.governance.application.node_service import NodeService
+from bluebox.shared_kernel.domain.node import (
+    CapabilityNode,
+    EngineeringTaskNode,
+    Node,
+    UseCaseNode,
+    UserStoryNode,
+)
 from bluebox.shared_kernel.ports import AuditTrailRepository, ChatRepository, DecisionLedgerRepository
 
 _MAX_RETRIEVED_DECISIONS = 5
@@ -35,6 +43,39 @@ _MAX_RETRIEVED_AUDIT_EVENTS = 5
 
 def _new_message_id() -> str:
     return f"MSG-{uuid.uuid4().hex[:8].upper()}"
+
+
+def _render_node(node: Node) -> str:
+    """Human-readable block for one node, used as a `RetrievedContextItem`
+    (`source_type="node"`) so the ContextAgent can reason about - or
+    critique - a design before any code exists for it."""
+
+    lines = [f"{node.node_type} {node.node_id}: {node.name}", node.description]
+    if isinstance(node, EngineeringTaskNode):
+        lines += [
+            f"file_paths: {node.file_paths}",
+            f"tech_stack_requirements: {node.tech_stack_requirements}",
+            f"preconditions: {node.preconditions}",
+            f"postconditions: {node.postconditions}",
+            f"access_guards: {[g.description for g in node.access_guards]}",
+            f"database_schema_changes: {node.database_schema_changes}",
+        ]
+    elif isinstance(node, UserStoryNode):
+        lines += [
+            f"priority: {node.priority}, story_points: {node.story_points}",
+            f"acceptance_criteria: {[f'{c.given}/{c.when}/{c.then}' for c in node.acceptance_criteria]}",
+            f"technical_notes: {node.technical_notes}",
+            f"dependencies: {node.dependencies}",
+        ]
+    elif isinstance(node, UseCaseNode):
+        lines += [
+            f"preconditions: {node.preconditions}",
+            f"postconditions: {node.postconditions}",
+            f"success_criteria: {node.success_criteria}",
+        ]
+    elif isinstance(node, CapabilityNode):
+        lines.append(f"related_actor_ids: {node.related_actor_ids}")
+    return "\n".join(lines)
 
 
 class ChatService:
@@ -50,7 +91,9 @@ class ChatService:
         self._audit = audit
         self._nodes = nodes
 
-    def _retrieve_context(self, project_id: str) -> list[RetrievedContextItem]:
+    def _retrieve_context(
+        self, project_id: str, context_node_id: str | None = None
+    ) -> list[RetrievedContextItem]:
         items = [
             RetrievedContextItem(
                 source_type="decision", source_id=entry.entry_id, content=entry.summary
@@ -63,6 +106,16 @@ class ChatService:
             )
             for event in self._audit.list(project_id)[-_MAX_RETRIEVED_AUDIT_EVENTS:]
         ]
+        if context_node_id:
+            related = node_relations.gather_design_context(
+                self._nodes.list_by_project(project_id), context_node_id
+            )
+            items += [
+                RetrievedContextItem(
+                    source_type="node", source_id=node.node_id, content=_render_node(node)
+                )
+                for node in related
+            ]
         return items
 
     async def ask_context_question(
@@ -74,7 +127,7 @@ class ChatService:
             ContextQuestionRequest(
                 question=question,
                 context_node_id=context_node_id,
-                retrieved_context=self._retrieve_context(project_id),
+                retrieved_context=self._retrieve_context(project_id, context_node_id),
             )
         )
 

@@ -1,34 +1,30 @@
-"""doc/api_event_contract.md SS4.8 Blueprint Graph.
-
-Only `GET /graph` is implemented. `POST /graph/what-if` is contract-specified
-but has no caller anywhere in `new-fe/src` yet (`graphApi.simulateWhatIf` is
-defined but unused) - a real simulation engine (severity breakdown, file
-regen estimates) would be new domain logic with nothing driving it, so it's
-left out rather than fabricated.
+"""doc/api_event_contract.md SS4.8 Blueprint Graph & What-If Simulation.
 
 `GraphNode.type`'s contract Literal doesn't include `custom_annotation` (an
 addition beyond SS5.1's six node types, see `shared_kernel/domain/node.py`) -
 those nodes are omitted here rather than coerced into a type they aren't.
 
-Edges aren't a stored concept; they're derived on read. `parent_id` (generic,
-universal per SS5.1) is never actually set by `steering_service.py` when
-candidates are committed - the real per-type reference fields are what carry
-the hierarchy: `CapabilityNode.related_actor_ids`,
-`UseCaseNode.primary_actor_id`/`secondary_actor_ids`,
-`UserStoryNode.actor_id`/`dependencies`, `EngineeringTaskNode.parent_story_id`.
-Note the contract's own SS5.x fields don't link Capability<->UseCase or
-UseCase<->UserStory at all (only each links back to Actor, or - for
-EngineeringTask - to UserStory) - that's a real gap in the contract's node
-schemas, not something invented or omitted here. `provenance` edges (per the
-contract's `GraphEdge.type` enum) have no corresponding stored relationship
-at all.
+Edges aren't a stored concept; they're derived on read via
+`graph_utils.derive_node_edges` - see that function's docstring for why
+`parent_id` isn't the source of truth. Note the contract's own SS5.x fields
+don't link Capability<->UseCase or UseCase<->UserStory at all (only each
+links back to Actor, or - for EngineeringTask - to UserStory) - that's a
+real gap in the contract's node schemas, not something invented or omitted
+here. `provenance` edges (per the contract's `GraphEdge.type` enum) have no
+corresponding stored relationship at all.
+
+`POST /graph/what-if` delegates to `modules/graph/application/what_if_service`
+- see that module's docstring for the simulation engine itself.
 """
 
 from typing import Any, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 
+from bluebox.interfaces.api.deps import get_what_if_service
+from bluebox.modules.graph.application.what_if_service import WhatIfResult, WhatIfService
+from bluebox.shared_kernel.domain.graph_utils import derive_node_edges
 from bluebox.shared_kernel.domain.node import (
     CapabilityNode,
     EngineeringTaskNode,
@@ -149,42 +145,15 @@ def get_graph(
     if depth is not None:
         nodes = [n for n in nodes if _depth(n, by_id) <= depth]
 
-    node_ids = {n.node_id for n in nodes}
-
-    def _traceability_sources(node: Node) -> list[str]:
-        if isinstance(node, CapabilityNode):
-            return node.related_actor_ids
-        if isinstance(node, UseCaseNode):
-            return [node.primary_actor_id, *node.secondary_actor_ids]
-        if isinstance(node, UserStoryNode):
-            return [node.actor_id]
-        if isinstance(node, EngineeringTaskNode):
-            return [node.parent_story_id]
-        return [node.parent_id] if node.parent_id else []
-
-    edges: list[GraphEdge] = []
-    for node in nodes:
-        for source_id in _traceability_sources(node):
-            if source_id in node_ids:
-                edges.append(
-                    GraphEdge(
-                        id=f"EDGE-{source_id}-{node.node_id}",
-                        source=source_id,
-                        target=node.node_id,
-                        type="traceability",
-                    )
-                )
-        if isinstance(node, UserStoryNode):
-            for dep_id in node.dependencies:
-                if dep_id in node_ids:
-                    edges.append(
-                        GraphEdge(
-                            id=f"EDGE-DEP-{dep_id}-{node.node_id}",
-                            source=dep_id,
-                            target=node.node_id,
-                            type="dependency",
-                        )
-                    )
+    edges = [
+        GraphEdge(
+            id=f"EDGE-{'DEP-' if edge_type == 'dependency' else ''}{source_id}-{target_id}",
+            source=source_id,
+            target=target_id,
+            type=edge_type,  # type: ignore[arg-type]
+        )
+        for source_id, target_id, edge_type in derive_node_edges(nodes)
+    ]
 
     return GraphData(
         nodes=[
@@ -205,3 +174,21 @@ def get_graph(
             layers_present=sorted({n.layer for n in nodes}),
         ),
     )
+
+
+class WhatIfRequest(BaseModel):
+    """doc/api_event_contract.md SS4.8 `WhatIfRequest`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    node_id: str
+    proposed_changes: dict[str, Any]
+
+
+@router.post("/what-if", response_model=WhatIfResult)
+def simulate_what_if(
+    project_id: str,
+    request: WhatIfRequest,
+    service: WhatIfService = Depends(get_what_if_service),
+) -> WhatIfResult:
+    return service.simulate(project_id, request.node_id, request.proposed_changes)

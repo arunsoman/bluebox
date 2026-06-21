@@ -30,31 +30,27 @@
 }
 
 .field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  composes: field from "../../styles/primitives.module.css";
 }
 
 .label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-slate);
+  composes: fieldLabel from "../../styles/primitives.module.css";
 }
 
-.input,
-.select,
-.textarea {
-  font: inherit;
-  padding: 8px 10px;
-  border: 1px solid var(--color-silver);
-  border-radius: 6px;
-  background: var(--color-white);
-  color: var(--color-ink);
+.input {
+  composes: fieldInput from "../../styles/primitives.module.css";
+}
+
+.select {
+  composes: fieldInput from "../../styles/primitives.module.css";
 }
 
 .textarea {
+  composes: fieldInput from "../../styles/primitives.module.css";
+  height: auto;
   min-height: 80px;
   max-height: 240px;
+  padding: 8px 10px;
   resize: vertical;
   font-family: var(--font-ui);
 }

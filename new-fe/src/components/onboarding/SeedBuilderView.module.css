@@ -1,47 +1,58 @@
 .page {
-  min-height: 100vh;
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.card {
-  width: 600px;
-  background: var(--color-white);
-  border: 1px solid var(--color-silver);
-  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   padding: 24px;
 }
 
+.card {
+  width: 100%;
+  max-width: 600px;
+  background: var(--color-white);
+  border: 1px solid var(--color-silver);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-lg);
+  animation: scaleIn var(--motion-slow) var(--ease-standard);
+}
+
 .progressTrack {
-  height: 4px;
-  background: var(--color-silver);
-  border-radius: 2px;
+  height: 6px;
+  background: var(--color-silver-warm);
+  border-radius: 3px;
   overflow: hidden;
+  margin-bottom: 20px;
 }
 
 .progressFill {
   height: 100%;
-  background: var(--color-frontend);
-  transition: width var(--motion-normal) var(--ease-standard);
+  background: linear-gradient(90deg, var(--color-frontend) 0%, #818cf8 100%);
+  border-radius: 3px;
+  transition: width var(--motion-slow) var(--ease-standard);
 }
 
 .stepLabel {
   font-size: 12px;
-  color: var(--color-slate);
-  margin: 12px 0 4px;
+  font-weight: 600;
+  color: var(--color-frontend);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 4px;
 }
 
 .description {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-ink);
-  margin: 0 0 16px;
+  margin: 0 0 24px;
+  line-height: 1.5;
 }
 
 .fields {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .fieldRow {
@@ -51,30 +62,50 @@
 }
 
 .label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--color-slate);
+  color: var(--color-ink);
 }
 
 .input {
-  height: 40px;
-  padding: 0 12px;
+  height: 44px;
+  padding: 0 14px;
   border: 1px solid var(--color-silver);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-family: inherit;
+  font-size: 14px;
+  transition: all var(--motion-fast) var(--ease-standard);
+}
+
+.input:hover {
+  border-color: var(--color-slate-light);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-frontend);
+  box-shadow: var(--shadow-glow);
 }
 
 .checkboxRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.checkboxRow input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-frontend);
 }
 
 .navRow {
   display: flex;
   justify-content: space-between;
-  margin-top: 24px;
-  padding-top: 16px;
+  margin-top: 28px;
+  padding-top: 20px;
   border-top: 1px solid var(--color-silver);
 }

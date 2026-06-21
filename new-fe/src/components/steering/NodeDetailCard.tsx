@@ -5,6 +5,13 @@ import styles from "./NodeDetailCard.module.css";
 
 const EDITABLE_TYPES: string[] = ["actor", "capability", "use_case", "user_story", "engineering_task"];
 
+const RISK_CLASS: Record<DraftNode["risk_classification"], string> = {
+  LOW_RISK: styles.low,
+  MEDIUM: styles.medium,
+  HIGH: styles.high,
+  CRITICAL: styles.critical,
+};
+
 interface NodeDetailCardProps {
   node: DraftNode;
   onSaveDescription: (newDescription: string) => Promise<void>;
@@ -21,7 +28,9 @@ export function NodeDetailCard({ node, onSaveDescription, submitting }: NodeDeta
     <div className={styles.card}>
       <div className={styles.header}>
         <span className={styles.name}>{node.name}</span>
-        <span className={styles.badge}>{node.risk_classification}</span>
+        <span className={`${styles.badge} ${RISK_CLASS[node.risk_classification]}`}>
+          {node.risk_classification}
+        </span>
         {isEditable && (
           <Button variant="secondary" onClick={() => openEdit(node.node_id, node.node_type as EditableNodeType)}>
             Edit Full Node

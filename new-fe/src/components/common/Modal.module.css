@@ -1,42 +1,27 @@
 .backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  z-index: var(--z-modal);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  composes: modalOverlay from "../../styles/primitives.module.css";
 }
 
 .dialog {
-  background: var(--color-white);
-  border-radius: 12px;
-  max-height: 85vh;
-  overflow-y: auto;
+  composes: modalDialog from "../../styles/primitives.module.css";
 }
 
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--color-silver);
+  composes: modalHeader from "../../styles/primitives.module.css";
 }
 
 .title {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0;
+  composes: modalTitle from "../../styles/primitives.module.css";
 }
 
 .close {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: var(--color-slate);
+  composes: modalCloseButton from "../../styles/primitives.module.css";
 }
 
 .body {
-  padding: 20px;
+  composes: modalBody from "../../styles/primitives.module.css";
+}
+
+.footer {
+  composes: modalFooter from "../../styles/primitives.module.css";
 }

@@ -18,6 +18,8 @@ from bluebox.modules.code_generation.application.generation_service import (
 )
 from bluebox.modules.code_generation.application.workspace_manager import WorkspaceManager
 from bluebox.modules.code_generation.llm import agents as codegen_agents
+from bluebox.modules.code_generation.llm.requests import CodeFileGenerationRequest
+from bluebox.modules.code_generation.llm.responses import GeneratedFileDraft
 from bluebox.shared_kernel.domain.node import EngineeringTaskNode, NodeProvenance
 from bluebox.shared_kernel.infrastructure.in_memory import (
     InMemoryNodeRepository,
@@ -201,3 +203,67 @@ async def test_run_task_rejects_while_already_running_or_sweeping(tmp_path) -> N
         with pytest.raises(TaskAlreadyRunningError):
             await service.run_task(_PROJECT, "TASK-2")
         await service._projects[_PROJECT].sweep_task
+
+
+async def test_start_broadcasts_generating_status_before_each_file_completes(tmp_path, monkeypatch) -> None:
+    tasks = [_task("TASK-1", "backend/a.py"), _task("TASK-2", "backend/b.py")]
+    service, events, _nodes = _service(tmp_path, nodes=tasks)
+
+    async def fake_generate_code_file(request: CodeFileGenerationRequest) -> GeneratedFileDraft:
+        return GeneratedFileDraft(file_path=request.file_path, content="x = 1\n", language="python")
+
+    monkeypatch.setattr(codegen_agents, "generate_code_file", fake_generate_code_file)
+
+    await service.start(_PROJECT, _Request())
+    await service._projects[_PROJECT].sweep_task
+
+    by_file: dict[str, list[str]] = {"backend/a.py": [], "backend/b.py": []}
+    for _, name, payload in events:
+        if name == "FILE_STATUS_CHANGED" and payload["file_path"] in by_file:
+            by_file[payload["file_path"]].append("generating")
+        if name == "CODE_FILE_COMPLETE" and payload["file_path"] in by_file:
+            by_file[payload["file_path"]].append("complete")
+
+    assert by_file["backend/a.py"] == ["generating", "complete"]
+    assert by_file["backend/b.py"] == ["generating", "complete"]
+
+
+async def test_run_one_syntax_error_marks_task_failed_and_continues_sweep(tmp_path, monkeypatch) -> None:
+    tasks = [_task("TASK-1", "backend/a.py"), _task("TASK-2", "backend/b.py")]
+    service, events, _nodes = _service(tmp_path, nodes=tasks)
+
+    async def fake_generate_code_file(request: CodeFileGenerationRequest) -> GeneratedFileDraft:
+        if request.file_path == "backend/a.py":
+            return GeneratedFileDraft(file_path=request.file_path, content="def foo(:\n", language="python")
+        return GeneratedFileDraft(file_path=request.file_path, content="x = 1\n", language="python")
+
+    monkeypatch.setattr(codegen_agents, "generate_code_file", fake_generate_code_file)
+
+    await service.start(_PROJECT, _Request())
+    await service._projects[_PROJECT].sweep_task
+
+    listed = {t.task_id: t for t in service.list_tasks(_PROJECT)}
+    assert listed["TASK-1"].status == "failed"
+    assert listed["TASK-1"].error.error_type == "syntax"
+    assert listed["TASK-1"].error.recoverable is True
+    assert listed["TASK-2"].status == "completed"
+
+
+async def test_run_task_syntax_error_broadcasts_then_reraises(tmp_path, monkeypatch) -> None:
+    tasks = [_task("TASK-1", "backend/a.py")]
+    service, events, _nodes = _service(tmp_path, nodes=tasks)
+
+    async def fake_generate_code_file(request: CodeFileGenerationRequest) -> GeneratedFileDraft:
+        return GeneratedFileDraft(file_path=request.file_path, content="def foo(:\n", language="python")
+
+    monkeypatch.setattr(codegen_agents, "generate_code_file", fake_generate_code_file)
+
+    from bluebox.modules.code_generation.application.syntax_validator import GeneratedCodeSyntaxError
+
+    with pytest.raises(GeneratedCodeSyntaxError):
+        await service.run_task(_PROJECT, "TASK-1")
+
+    status_events = [p for _, n, p in events if n == "CODE_TASK_STATUS"]
+    assert any(
+        e["error"] is not None and e["error"]["error_type"] == "syntax" for e in status_events
+    )

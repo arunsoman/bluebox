@@ -1,0 +1,21 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--term-bg);
+}
+
+.main {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure direct children fill the slot */
+.main > * {
+  flex: 1;
+  min-height: 0;
+}

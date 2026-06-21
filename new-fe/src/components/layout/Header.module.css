@@ -1,0 +1,102 @@
+.header {
+  height: var(--header-height);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--term-bg-header);
+  border-bottom: 1px solid var(--term-border);
+  position: relative;
+  z-index: 100;
+}
+
+/* Top rim light */
+.header::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 157, 0.15), transparent);
+}
+
+.headerLeft, .headerRight, .headerCenter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.headerCenter {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--term-fg);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.logo {
+  color: var(--color-primary);
+  font-size: 14px;
+  text-shadow: 0 0 10px var(--color-primary-glow);
+}
+
+.brand {
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+}
+
+.statusDot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success-glow);
+  position: relative;
+}
+
+.statusDot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--color-success);
+  opacity: 0.3;
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.statusText {
+  color: var(--color-success);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.divider { color: var(--term-border-bright); font-weight: 400; }
+
+.userTag { color: var(--term-fg-dim); font-size: 11px; font-family: var(--font-mono); }
+
+.logoutBtn {
+  padding: 2px 10px;
+  border: 1px solid var(--term-border);
+  border-radius: 3px;
+  color: var(--term-fg-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-family: var(--font-mono);
+  transition: all var(--motion-fast) var(--ease-standard);
+}
+.logoutBtn:hover {
+  border-color: var(--term-border-bright);
+  color: var(--term-fg);
+  box-shadow: var(--focus-glow-primary);
+}

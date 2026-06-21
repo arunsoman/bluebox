@@ -244,6 +244,10 @@ class AppState:
         self.pending_hosting_options: SqlitePendingDict = SqlitePendingDict(db_path, "hosting_options")
         self.pending_tech_stack_options: SqlitePendingDict = SqlitePendingDict(db_path, "tech_stack_options")
         self.pending_rbac_model: SqlitePendingDict = SqlitePendingDict(db_path, "rbac_model")
+        # Same rationale: the most recent Blueprint Graph What-If simulation
+        # per project, awaiting a `WHAT_IF_COMMIT` - see
+        # `modules/graph/application/what_if_service.py`.
+        self.pending_what_if_simulations: SqlitePendingDict = SqlitePendingDict(db_path, "what_if_simulations")
         self.infrastructure_profiles = SqliteInfrastructureProfileRepository(db_path)
         self.tech_stack_profiles = SqliteTechStackProfileRepository(db_path)
         self.rbac_models = SqliteRBACModelRepository(db_path)

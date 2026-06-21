@@ -1,78 +1,326 @@
-/**
- * Design tokens transcribed from doc/uiux_specification.agent.final.md
- * (semantic palette, layer colors, motion timing, z-index tiers).
- * Do not hardcode hex/timing values in components — reference these.
+/*
+ * Design tokens transcribed from doc/uiux_specification.agent.final.md §7
+ * (Color Palette §7.1, Typography §7.2, Spacing §7.3, Shadows §7.5, Motion
+ * §7.6). This is the single source of truth for color/spacing/radius/
+ * shadow/motion values — components should reference these tokens, never
+ * hardcode an equivalent hex/px value locally.
+ *
+ * The "Deprecated aliases" block at the bottom keeps the old --term-,
+ * --color-primary, --shadow-3d and --focus-glow names alive, pointed at the
+ * new spec values, so every component still using the old names repaints
+ * correctly without a per-file edit. New/updated components should use the
+ * canonical names above the alias block directly; the aliases are migration
+ * scaffolding, not a second design system.
  */
+
 :root {
-  /* Neutrals */
+  /* ── §7.1.1 Semantic Base Colors ── */
   --color-ink: #0f172a;
   --color-slate: #475569;
   --color-silver: #cbd5e1;
   --color-cloud: #f8fafc;
   --color-white: #ffffff;
-  --color-skeleton-base: #e2e8f0;
-  --color-skeleton-shimmer: #f1f5f9;
 
-  /* Semantic */
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-error: #ef4444;
-  --color-error-bg: #fef2f2;
-  --color-info: #38bdf8;
-  --color-frontend: #2563eb;
-  --color-frontend-hover: #1d4ed8;
+  /* Used by a few components as a slightly-darker-than-default border/
+     track tone; no distinct spec value exists, so these alias straight
+     to their nearest base color rather than inventing a new hex. */
+  --color-silver-warm: var(--color-silver);
+  --color-slate-light: var(--color-slate);
 
-  /* Architectural layer colors (File Explorer / Blueprint Graph) */
+  /* Fixed white text sitting on a solid accent background (primary/danger
+     buttons, active trust-mode pills, etc.) — deliberately NOT swapped by
+     [data-theme="dark"]. --color-white is the canvas/surface token (its
+     *role* flips to "darkest surface" under dark mode per spec §7.1.5);
+     text painted on top of an already-colored background needs to stay
+     white in both themes, which is a different concern from the surface
+     token and would otherwise go dark-on-dark if it shared that name. */
+  --color-on-accent: #ffffff;
+
+  /* ── §7.1.2 Layer Colors (500 / 100-tint / 700-hover) ── */
   --color-layer-frontend: #2563eb;
+  --color-layer-frontend-100: #dbeafe;
+  --color-layer-frontend-700: #1d4ed8;
+
   --color-layer-backend: #059669;
+  --color-layer-backend-100: #d1fae5;
+  --color-layer-backend-700: #047857;
+
   --color-layer-database: #d97706;
+  --color-layer-database-100: #fef3c7;
+  --color-layer-database-700: #b45309;
+
   --color-layer-infra: #7c3aed;
+  --color-layer-infra-100: #ede9fe;
+  --color-layer-infra-700: #6d28d9;
+
   --color-layer-auth: #e11d48;
+  --color-layer-auth-100: #ffe4e6;
+  --color-layer-auth-700: #be123c;
+
   --color-layer-test: #ca8a04;
+  --color-layer-test-100: #fef9c3;
+  --color-layer-test-700: #a16207;
+
   --color-layer-devops: #78716c;
+  --color-layer-devops-100: #f5f5f4;
+  --color-layer-devops-700: #44403c;
+
   --color-layer-security: #dc2626;
+  --color-layer-security-100: #fee2e2;
+  --color-layer-security-700: #b91c1c;
 
-  /* Terminal (dark, fixed regardless of theme per spec §5.6.1) */
-  --term-bg: #0f172a;
-  --term-fg: #f8fafc;
-  --term-cursor: #60a5fa;
-  --term-selection: rgba(96, 165, 250, 0.25);
-  --term-red: #f87171;
-  --term-green: #34d399;
-  --term-blue: #60a5fa;
+  /* Frontend/Ocean doubles as the app's primary accent (buttons, links,
+     focus rings), not just the Frontend-layer badge color — components
+     reference it under this bare name far more often than --color-layer-*. */
+  --color-frontend: var(--color-layer-frontend);
+  --color-frontend-hover: var(--color-layer-frontend-700);
+  --color-frontend-light: var(--color-layer-frontend-100);
 
-  /* Typography */
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* ── §7.1.3 State Colors ── */
+  --color-success: #10b981;
+  --color-success-dim: rgba(16, 185, 129, 0.15);
+  --color-success-glow: rgba(16, 185, 129, 0.3);
 
-  /* Motion (UIUX §3.5 token system) */
-  --motion-fast: 150ms;
-  --motion-normal: 250ms;
-  --motion-slow: 400ms;
-  --motion-deliberate: 600ms;
+  --color-warning: #f59e0b;
+  --color-warning-dim: rgba(245, 158, 11, 0.15);
+  --color-warning-glow: rgba(245, 158, 11, 0.3);
+
+  --color-error: #ef4444;
+  --color-error-dim: rgba(239, 68, 68, 0.15);
+  --color-error-glow: rgba(239, 68, 68, 0.3);
+
+  --color-info: #38bdf8;
+  --color-info-dim: rgba(56, 189, 248, 0.15);
+  --color-info-glow: rgba(56, 189, 248, 0.3);
+
+  --color-neutral: #94a3b8;
+  --color-neutral-dim: rgba(148, 163, 184, 0.15);
+
+  /* "-light"/"-bg" are the same 15%-tint values as "-dim", under the name
+     several components actually use for badge/banner backgrounds. */
+  --color-success-light: var(--color-success-dim);
+  --color-warning-light: var(--color-warning-dim);
+  --color-error-light: var(--color-error-dim);
+  --color-error-bg: var(--color-error-dim);
+  --color-info-light: var(--color-info-dim);
+
+  /* ── §7.1.4 Trust Mode Badge Colors ── */
+  --color-trust-paranoid-bg: #fee2e2;
+  --color-trust-paranoid-text: #dc2626;
+  --color-trust-balanced-bg: #fef3c7;
+  --color-trust-balanced-text: #d97706;
+  --color-trust-autopilot-bg: #d1fae5;
+  --color-trust-autopilot-text: #059669;
+
+  /* ── §7.2.1 Typography (Inter preferred; falls back to system-ui until
+       a web-font load is wired up, deliberately not done here) ── */
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ── §7.3.1 Spacing Scale (4px base unit) ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+
+  /* ── §7.3.2 Border Radius ── */
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* ── §7.5.1 Elevation / Shadows (light) ── */
+  --shadow-level-0: none;
+  --shadow-level-1: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-level-2: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-level-3: 0 12px 40px rgba(0, 0, 0, 0.18);
+  --shadow-level-4: 0 12px 40px rgba(0, 0, 0, 0.18);
+
+  /* Plain-name aliases — several components reference shadow tiers under
+     these names rather than --shadow-level-*. */
+  --shadow-sm: var(--shadow-level-1);
+  --shadow-md: var(--shadow-level-2);
+  --shadow-lg: var(--shadow-level-3);
+
+  /* ── §7.6.1 Motion: Duration & Easing ── */
+  --duration-instant: 0ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-deliberate: 600ms;
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-enter: cubic-bezier(0, 0, 0.2, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* Z-index tiers (UIUX §3.2.1) */
+  /* ── §7.6.3 Focus rings (3px spread, 20% tint of the relevant color) ── */
+  --focus-ring-frontend: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  --focus-ring-info: 0 0 0 3px rgba(56, 189, 248, 0.2);
+  --focus-ring-error: 0 0 0 3px rgba(239, 68, 68, 0.15);
+  --shadow-glow: var(--focus-ring-frontend);
+
+  /* ── Layout (not spec-mandated values; app-specific chrome heights) ── */
+  --header-height: 36px;
+  --footer-height: 28px;
+  --panel-title-height: 30px;
+  --toolbar-height: 48px;
+
+  /* ── Z-index (10-unit scale per §7.5.1, app-specific layers added) ── */
   --z-base: 0;
   --z-panel: 100;
-  --z-dropdown: 800;
-  --z-tooltip: 900;
+  --z-dropdown: 200;
+  --z-tooltip: 300;
   --z-modal: 1000;
   --z-toast: 5000;
-  --z-celebration-modal: 6000;
+}
 
-  /* Layout (UIUX §3.1) */
-  --toolbar-height: 48px;
-  --left-sidebar-default: 320px;
-  --left-sidebar-min: 260px;
-  --left-sidebar-max: 480px;
-  --right-sidebar-default: 400px;
-  --right-sidebar-min: 320px;
-  --right-sidebar-max: 640px;
-  --bottom-panel-default: 200px;
-  --bottom-panel-min: 120px;
-  --bottom-panel-max: 480px;
+/*
+ * ── §7.1.5 Dark Mode Equivalent Palette ──
+ * Token *values* swap under [data-theme="dark"] on <html>. index.html sets
+ * that attribute statically, so dark is the app's default today; nothing
+ * yet reads/writes it at runtime, so there's no light-mode toggle in the UI
+ * — switching themes currently means editing that attribute by hand.
+ */
+[data-theme="dark"] {
+  --color-white: #0f172a; /* Ink-DM: primary dark canvas */
+  --color-cloud: #1e293b; /* Surface-Raised: panel backgrounds */
+  --color-silver: #475569; /* Slate-DM: borders/dividers on dark */
+  --color-slate: #cbd5e1; /* Silver-DM: secondary text on dark */
+  --color-ink: #f8fafc; /* Cloud-DM: primary text on dark */
+
+  --color-layer-frontend: #60a5fa;
+  --color-layer-frontend-100: rgba(96, 165, 250, 0.15);
+  --color-layer-frontend-700: #93c5fd;
+
+  --color-layer-backend: #34d399;
+  --color-layer-backend-100: rgba(52, 211, 153, 0.15);
+  --color-layer-backend-700: #6ee7b7;
+
+  --color-layer-database: #fbbf24;
+  --color-layer-database-100: rgba(251, 191, 36, 0.15);
+  --color-layer-database-700: #fcd34d;
+
+  --color-layer-infra: #a78bfa;
+  --color-layer-infra-100: rgba(167, 139, 250, 0.15);
+  --color-layer-infra-700: #c4b5fd;
+
+  --color-layer-auth: #fb7185;
+  --color-layer-auth-100: rgba(251, 113, 133, 0.15);
+  --color-layer-auth-700: #fda4af;
+
+  --color-layer-test: #facc15;
+  --color-layer-test-100: rgba(250, 204, 21, 0.15);
+  --color-layer-test-700: #fde047;
+
+  --color-layer-devops: #a8a29e;
+  --color-layer-devops-100: rgba(168, 162, 158, 0.15);
+  --color-layer-devops-700: #d6d3d1;
+
+  --color-layer-security: #f87171;
+  --color-layer-security-100: rgba(248, 113, 113, 0.15);
+  --color-layer-security-700: #fca5a5;
+
+  --color-success: #34d399;
+  --color-success-dim: rgba(52, 211, 153, 0.15);
+  --color-success-glow: rgba(52, 211, 153, 0.3);
+
+  --color-warning: #fcd34d;
+  --color-warning-dim: rgba(252, 211, 77, 0.15);
+  --color-warning-glow: rgba(252, 211, 77, 0.3);
+
+  --color-error: #f87171;
+  --color-error-dim: rgba(248, 113, 113, 0.15);
+  --color-error-glow: rgba(248, 113, 113, 0.3);
+
+  --color-info: #7dd3fc;
+  --color-info-dim: rgba(125, 211, 252, 0.15);
+  --color-info-glow: rgba(125, 211, 252, 0.3);
+
+  /* Trust mode badges: tinted overlay on the -400 color instead of the
+     light theme's solid pastel (which would look chalky on a dark canvas). */
+  --color-trust-paranoid-bg: rgba(248, 113, 113, 0.15);
+  --color-trust-paranoid-text: #f87171;
+  --color-trust-balanced-bg: rgba(252, 211, 77, 0.15);
+  --color-trust-balanced-text: #fcd34d;
+  --color-trust-autopilot-bg: rgba(52, 211, 153, 0.15);
+  --color-trust-autopilot-text: #34d399;
+
+  /* Legacy alias colors (see "Deprecated aliases" below) recomputed so
+     glows/focus-rings tint with the dark accent, not the light one. */
+  --color-primary-dim: rgba(96, 165, 250, 0.15);
+  --color-primary-glow: rgba(96, 165, 250, 0.35);
+  --color-primary-glow-strong: rgba(96, 165, 250, 0.55);
+  --color-secondary-dim: rgba(125, 211, 252, 0.15);
+  --color-secondary-glow: rgba(125, 211, 252, 0.3);
+  --color-purple-dim: rgba(167, 139, 250, 0.15);
+  --color-purple-glow: rgba(167, 139, 250, 0.3);
+
+  --focus-ring-frontend: 0 0 0 3px rgba(96, 165, 250, 0.25);
+  --focus-ring-info: 0 0 0 3px rgba(125, 211, 252, 0.25);
+  --focus-ring-error: 0 0 0 3px rgba(248, 113, 113, 0.2);
+
+  /* Shadow opacity +40% per §7.5.1 */
+  --shadow-level-1: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-level-2: 0 4px 12px rgba(0, 0, 0, 0.16);
+  --shadow-level-3: 0 12px 40px rgba(0, 0, 0, 0.24);
+  --shadow-level-4: 0 12px 40px rgba(0, 0, 0, 0.24);
+}
+
+/*
+ * ── Deprecated aliases ──
+ * Old names, pointed at the new spec-correct values above. Existing
+ * components keep working (and now render the correct palette) without
+ * edits; migrate a component onto the canonical names directly when you
+ * next touch it, rather than as a standalone rename pass.
+ */
+:root {
+  /* --term-* (old dark-terminal canvas) → base colors */
+  --term-bg: var(--color-cloud);
+  --term-bg-elevated: var(--color-cloud);
+  --term-bg-panel: var(--color-white);
+  --term-bg-header: var(--color-white);
+  --term-bg-footer: var(--color-white);
+  --term-bg-input: var(--color-white);
+
+  --term-fg: var(--color-ink);
+  --term-fg-dim: var(--color-slate);
+  --term-fg-bright: var(--color-ink);
+  --term-border: var(--color-silver);
+  --term-border-bright: var(--color-slate);
+
+  /* old neon accent names → spec accents */
+  --color-primary: var(--color-layer-frontend);
+  --color-primary-dim: rgba(37, 99, 235, 0.12);
+  --color-primary-glow: rgba(37, 99, 235, 0.35);
+  --color-primary-glow-strong: rgba(37, 99, 235, 0.55);
+
+  --color-secondary: var(--color-info);
+  --color-secondary-dim: rgba(56, 189, 248, 0.12);
+  --color-secondary-glow: rgba(56, 189, 248, 0.3);
+
+  --color-purple: var(--color-layer-infra);
+  --color-purple-dim: rgba(124, 58, 237, 0.12);
+  --color-purple-glow: rgba(124, 58, 237, 0.3);
+
+  /* old composite "3D" shadows → flat elevation levels (the inset
+     highlight + border-ring trick was part of the unspecced neon look) */
+  --shadow-3d-sm: var(--shadow-level-1);
+  --shadow-3d: var(--shadow-level-2);
+  --shadow-3d-lg: var(--shadow-level-3);
+
+  /* old 4-layer focus glow → single spec-correct focus ring */
+  --focus-glow-primary: var(--focus-ring-frontend);
+  --focus-glow-secondary: var(--focus-ring-info);
+  --focus-glow-error: var(--focus-ring-error);
+  --focus-glow-purple: 0 0 0 3px rgba(124, 58, 237, 0.2);
+
+  /* old motion names → nearest spec duration step */
+  --motion-fast: var(--duration-fast);
+  --motion-normal: var(--duration-normal);
+  --motion-slow: var(--duration-slow);
 }

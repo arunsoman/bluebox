@@ -37,6 +37,13 @@ export const usePipelineStore = create<PipelineStoreState>((set, get) => ({
       socketClient.on("STATE_TRANSITION", ({ to_state }) =>
         set((s) => (s.pipelineState ? { pipelineState: { ...s.pipelineState, current_state: to_state } } : s)),
       ),
+      // No refresh-token flow exists (see authStore.ts) — once the access
+      // token expires the only recovery is signing in again, so log out
+      // rather than letting socketClient retry with the same dead token.
+      socketClient.on("AUTH_SESSION_EXPIRED", () => {
+        useAuthStore.getState().logout();
+        get().disconnect();
+      }),
     );
 
     socketClient.connect(sessionId, token);

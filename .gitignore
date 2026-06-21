@@ -10,3 +10,4 @@ be/.bluebox.db-*
 be/.env
 be/.pytest_cache/
 .env
+be/uv.lock
