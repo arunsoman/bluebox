@@ -23,12 +23,14 @@ export function useStagePanel() {
     mode,
     expandedNodeId,
     submitting,
+    regenerating,
     init,
     toggleSelect,
     toggleBookmark,
     setMode,
     setExpanded,
     submitAction,
+    regenerate,
   } = useSteeringStore();
 
   const [page, setPage] = useState(0);
@@ -58,7 +60,12 @@ export function useStagePanel() {
   const approvableNodes = panel ? panel.draft_output.filter((n) => n.status !== "auto_approved") : [];
   const approvableIds = approvableNodes.map((n) => n.node_id);
   const pendingConsent = approvableNodes.filter((n) => n.consent_required && !consentedIds.has(n.node_id));
-  const canApproveAll = approvableIds.length > 0 && pendingConsent.length === 0;
+  // A stage that generated zero approvable items has nothing blocking it - submitting an
+  // empty accept is a no-op on the backend (steering_service.accept_all) and still advances
+  // the FSM, so the user isn't stuck just because this stage had no candidates to review.
+  const nothingToApprove = approvableIds.length === 0;
+  const canApproveAll = nothingToApprove || pendingConsent.length === 0;
+  const approveAllLabel = nothingToApprove ? "Continue" : "Approve All";
   const bookmarkedNodes = panel ? panel.draft_output.filter((n) => bookmarkedOptionIds.has(n.node_id)) : [];
   const expandedNode = panel?.draft_output.find((n) => n.node_id === expandedNodeId) ?? null;
 
@@ -86,6 +93,10 @@ export function useStagePanel() {
     toggleConsent,
     approvableIds,
     canApproveAll,
+    nothingToApprove,
+    approveAllLabel,
+    regenerating,
+    regenerate,
     goToImpactGraph: () => setActiveCenterTab("graph"),
   } as const;
 }

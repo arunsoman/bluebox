@@ -7,7 +7,7 @@ import { persist } from "zustand/middleware";
  * browser-scoped key since this build is single-tenant-per-browser. Revisit
  * if multi-account-per-browser support is needed.
  */
-export type CenterTab = "editor" | "steering" | "graph";
+export type CenterTab = "projects" | "prd" | "steering" | "graph" | "code-gen" | "editor";
 export type BottomTab = "terminal" | "test-results" | "audit-trail" | "code-gen";
 
 interface IdeLayoutState {
@@ -43,7 +43,7 @@ export const useIdeLayoutStore = create<IdeLayoutState>()(
       leftSidebarCollapsed: false,
       rightSidebarCollapsed: false,
       bottomPanelCollapsed: false,
-      activeCenterTab: "editor",
+      activeCenterTab: "prd",
       activeBottomTab: "terminal",
       trustMode: "PARANOID",
 

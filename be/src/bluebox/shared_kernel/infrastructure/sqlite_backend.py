@@ -36,6 +36,7 @@ from bluebox.modules.chat.domain.chat_message import ChatMessage
 from bluebox.modules.code_generation.domain.workspace import GeneratedFile, WorkspaceManifest
 from bluebox.modules.core_pipeline.domain.project import Project
 from bluebox.modules.core_pipeline.domain.state_machine import PipelineOrchestrator
+from bluebox.modules.input_processing.domain.prd_submission import PrdSubmission
 from bluebox.shared_kernel.domain.audit import AuditEvent, Checkpoint, DecisionEntry
 from bluebox.shared_kernel.domain.node import Node, NodeAdapter
 from bluebox.shared_kernel.domain.rbac import RBACModel
@@ -84,6 +85,7 @@ CREATE TABLE IF NOT EXISTS workspace_manifests (project_id TEXT PRIMARY KEY, dat
 CREATE TABLE IF NOT EXISTS infrastructure_profiles (project_id TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS tech_stack_profiles (project_id TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS rbac_models (project_id TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS prd_submissions (project_id TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS pending_state (
     slot TEXT NOT NULL, project_id TEXT NOT NULL, data BLOB NOT NULL,
     PRIMARY KEY (slot, project_id)
@@ -323,6 +325,17 @@ class SqliteRBACModelRepository:
 
     def get(self, project_id: str) -> RBACModel | None:
         return _get_one(self._db_path, "rbac_models", project_id, RBACModel)
+
+
+class SqlitePrdSubmissionRepository:
+    def __init__(self, db_path: Path) -> None:
+        self._db_path = db_path
+
+    def save(self, project_id: str, submission: PrdSubmission) -> None:
+        _save_one(self._db_path, "prd_submissions", project_id, submission)
+
+    def get(self, project_id: str) -> PrdSubmission | None:
+        return _get_one(self._db_path, "prd_submissions", project_id, PrdSubmission)
 
 
 class SqlitePendingDict(MutableMapping[str, Any]):

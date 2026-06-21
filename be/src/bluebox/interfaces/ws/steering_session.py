@@ -40,6 +40,7 @@ from bluebox.interfaces.stage_advance import (
     steering_panel_ready_payload,
 )
 from bluebox.interfaces.ws.connection_registry import connection_registry
+from bluebox.modules.core_pipeline.application.steering_service import apply_modifications
 from bluebox.modules.governance.application.node_service import NodeNotFoundError
 from bluebox.modules.graph.application.what_if_service import (
     WhatIfCommitBlockedError,
@@ -131,7 +132,7 @@ async def _resend_pending_panel(websocket: WebSocket, project_id: str) -> None:
     cached = app_state.pending_candidates.get(project_id)
     if cached is None:
         return
-    stage, candidates = cached
+    stage, candidates, _node_ids = cached
     await _send(websocket, project_id, "STEERING_PANEL_READY", steering_panel_ready_payload(project_id, stage, candidates))
 
 
@@ -175,7 +176,7 @@ async def _handle_steering_action(websocket: WebSocket, project_id: str, payload
     action_type = payload.get("action_type")
     stage_id = payload.get("stage_id")
 
-    if action_type != "accept":
+    if action_type not in ("accept", "modify"):
         await _send(websocket, project_id, "ERROR", {
             "error_code": "SYS-E01", "message": f"steering action_type {action_type!r} is not implemented",
             "recoverable": False, "action_options": [], "context": None,
@@ -189,10 +190,31 @@ async def _handle_steering_action(websocket: WebSocket, project_id: str, payload
             "recoverable": True, "action_options": [], "context": None,
         })
         return
+    _, candidates, node_ids = cached
+
+    if action_type == "modify":
+        modifications = [
+            (m.get("node_id"), m.get("field_path"), m.get("new_value"))
+            for m in payload.get("payload", {}).get("modified_nodes") or []
+        ]
+        try:
+            node_updates = apply_modifications(candidates, node_ids, modifications)
+        except ValueError as exc:
+            await _send(websocket, project_id, "ERROR", {
+                "error_code": "VAL-E01", "message": str(exc),
+                "recoverable": True, "action_options": [], "context": None,
+            })
+            return
+        # Same durability note as the REST router: mutating `candidates` is
+        # only visible to the next read if the tuple is re-stored here.
+        app_state.pending_candidates[project_id] = (stage_id, candidates, node_ids)
+        for update in node_updates:
+            await _send(websocket, project_id, "NODE_UPDATED", update)
+        return
 
     steering_service = get_steering_service()
     history_before = len(app_state.sessions.get_or_create(project_id).history)
-    committed = steering_service.accept_all(project_id, stage_id, cached[1])
+    committed = steering_service.accept_all(project_id, stage_id, candidates, node_ids)
     del app_state.pending_candidates[project_id]
 
     await _send_transitions(websocket, project_id, history_before)

@@ -34,7 +34,7 @@ def get_project_service() -> ProjectService:
 
 
 def get_onboarding_service() -> OnboardingService:
-    return OnboardingService(app_state.sessions)
+    return OnboardingService(app_state.sessions, app_state.prd_submissions, app_state.nodes)
 
 
 def get_stage_service() -> StageService:

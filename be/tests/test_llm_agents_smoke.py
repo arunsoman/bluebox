@@ -99,6 +99,7 @@ from bluebox.modules.input_processing.llm.requests import (
     PRDAnalysisRequest,
     PRDChunkAnalysisRequest,
     RichnessClassificationRequest,
+    SectionContentDraftRequest,
     SeedSynthesisRequest,
 )
 from bluebox.modules.input_processing.llm.responses import (
@@ -107,6 +108,7 @@ from bluebox.modules.input_processing.llm.responses import (
     PRDAnalysisReport,
     PRDChunkAnalysisResult,
     RichnessClassification,
+    SectionContentDraft,
     Stage0Seed,
 )
 
@@ -177,6 +179,16 @@ CASES: list[tuple[Any, Any, Any, type]] = [
         input_processing_agents.detect_compliance,
         ComplianceDetectionRequest(raw_text="We store EU patient health records."),
         ComplianceDetectionResult,
+    ),
+    (
+        input_processing_agents.section_content_draft_agent,
+        input_processing_agents.draft_section_content,
+        SectionContentDraftRequest(
+            raw_prd_text="Full PRD text...",
+            section_name="Security",
+            guidance="Draft the missing 'Security' section.",
+        ),
+        SectionContentDraft,
     ),
     (
         input_processing_agents.seed_synthesis_agent,
@@ -397,4 +409,4 @@ def test_all_call_sites_covered() -> None:
     """Guards against silently losing coverage if a call site is added to
     agents.py but never added to CASES above."""
 
-    assert len(CASES) == 28
+    assert len(CASES) == 29

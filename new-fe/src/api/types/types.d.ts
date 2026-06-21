@@ -322,6 +322,8 @@ interface PRDAnalysisReport {
   unmapped_sections: UnmappedSection[];
   conflicts: PRDConflict[];
   richness_classification: RichnessClassification;
+  /** Not in api_event_contract.md - section names moved here by the "Out of Scope" action (AC-RI-06). */
+  out_of_scope_sections: string[];
 }
 
 interface PRDSection {
@@ -339,12 +341,16 @@ interface ThinSection {
   missing_detail: string;
   /** Chat seed */
   suggested_prompt: string;
+  /** Not in api_event_contract.md - set by the "Add detail" action (AC-RI-06). */
+  generated_content?: string | null;
 }
 
 interface MissingSection {
   expected_section_name: string;
   pipeline_stage: number;
   severity: "blocking" | "recommended";
+  /** Not in api_event_contract.md - set by the "Generate" action (AC-RI-06). */
+  generated_content?: string | null;
 }
 
 interface UnmappedSection {
@@ -357,6 +363,23 @@ interface PRDConflict {
   conflict_type: "contradiction" | "duplicate" | "ambiguity";
   description: string;
   involved_sections: string[];
+}
+
+/**
+ * Not part of doc/api_event_contract.md - backend's persisted record of a
+ * project's submitted PRD/raw input (be/.../onboarding_service.py's
+ * `PrdSubmission`), added so the workspace's PRD tab can show a
+ * previously-submitted PRD after onboarding completes. Same precedent as
+ * `src/api/endpoints/llmConfig.ts`/the log viewer (see CLAUDE.md).
+ */
+interface PrdSubmission {
+  project_id: string;
+  raw_text: string;
+  source: string;
+  richness: RichnessClassification;
+  prd_analysis: PRDAnalysisReportType | null;
+  compliance: ComplianceDetectionResult;
+  submitted_at: string;
 }
 
 interface MinimalistDialogue {

@@ -8,6 +8,7 @@ import { useEnsurePipelineConnection } from "@/hooks/useEnsurePipelineConnection
 import { socketClient } from "@/ws/socketClient";
 import { useLayout } from "@/components/layout/LayoutContext";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ChatPopupModal } from "@/components/chat/ChatPopupModal";
 import { ProjectsPanel } from "@/components/dashboard/ProjectsPanel";
 import { PRDPanel } from "@/components/onboarding/PRDPanel";
 import { SteeringPanelView } from "@/components/steering/SteeringPanelView";
@@ -26,12 +27,14 @@ import { MergeConflictModal } from "@/components/workspace/MergeConflictModal";
 import { DeploymentModal } from "@/components/deploy/DeploymentModal";
 import { CheckpointRestoreModal } from "@/components/checkpoints/CheckpointRestoreModal";
 import { usePipelineStore } from "@/stores/pipelineStore";
+import { useSteeringStore } from "@/stores/steeringStore";
 import { useCompletenessGateStore } from "@/stores/completenessGateStore";
 import { useRbacGateStore } from "@/stores/rbacGateStore";
 import { useTechStackGateStore } from "@/stores/techStackGateStore";
 import { useMergeConflictStore } from "@/stores/mergeConflictStore";
 import { useDeploymentStore } from "@/stores/deploymentStore";
 import { useCheckpointRestoreStore } from "@/stores/checkpointRestoreStore";
+import { useChatPopupStore } from "@/stores/chatPopupStore";
 import { useLogViewerStore } from "@/stores/logViewerStore";
 import styles from "./WorkspacePage.module.css";
 
@@ -59,6 +62,8 @@ export function WorkspacePage() {
   const hideDeploy = useDeploymentStore((s) => s.hide);
   const checkpointsOpen = useCheckpointRestoreStore((s) => s.open);
   const hideCheckpoints = useCheckpointRestoreStore((s) => s.hide);
+  const chatPopupOpen = useChatPopupStore((s) => s.open);
+  const hideChatPopup = useChatPopupStore((s) => s.hide);
 
   // Load project name
   useEffect(() => {
@@ -69,6 +74,18 @@ export function WorkspacePage() {
   useEffect(() => {
     if (!projectId) return;
     useLogViewerStore.getState().setProjectId(projectId);
+  }, [projectId]);
+
+  // Registered here rather than inside SteeringPanelView so the
+  // STEERING_PANEL_READY listener exists before the WS connection opens —
+  // the backend resends a pending panel immediately on connect
+  // (steering_session.py's `_resend_pending_panel`), and "steering" isn't
+  // the default center tab, so that panel wouldn't be mounted yet to catch
+  // it otherwise. Without this, reopening a project that's mid-review
+  // shows the Steering tab stuck on its empty "waiting" state forever.
+  useEffect(() => {
+    if (!projectId) return;
+    useSteeringStore.getState().init(projectId);
   }, [projectId]);
 
   // Set global header/footer context for workspace
@@ -162,7 +179,7 @@ export function WorkspacePage() {
           editor: <EditorPanel />,
         }}
         centerTabBadge={{ steering: pendingSteering }}
-        rightPanel={<PanelPlaceholder name="Live Preview" note="Deferred — out of scope for this pass." />}
+        // rightPanel={<PanelPlaceholder name="Live Preview" note="Deferred — out of scope for this pass." />}
         bottomPanels={{
           terminal: <PanelPlaceholder name="Terminal" note="Deferred — out of scope for this pass." />,
           "test-results": <PanelPlaceholder name="Test Results" note="Deferred — out of scope for this pass." />,
@@ -180,6 +197,7 @@ export function WorkspacePage() {
       {mergeConflict && <MergeConflictModal conflict={mergeConflict} onClose={hideMergeConflict} />}
       {deployOpen && <DeploymentModal onClose={hideDeploy} />}
       {checkpointsOpen && <CheckpointRestoreModal onClose={hideCheckpoints} />}
+      {chatPopupOpen && <ChatPopupModal onClose={hideChatPopup} />}
     </>
   );
 }

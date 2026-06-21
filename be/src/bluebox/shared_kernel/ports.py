@@ -14,6 +14,7 @@ from bluebox.modules.chat.domain.chat_message import ChatMessage
 from bluebox.modules.code_generation.domain.workspace import GeneratedFile, WorkspaceManifest
 from bluebox.modules.core_pipeline.domain.project import Project
 from bluebox.modules.core_pipeline.domain.state_machine import PipelineOrchestrator
+from bluebox.modules.input_processing.domain.prd_submission import PrdSubmission
 from bluebox.shared_kernel.domain.audit import AuditEvent, Checkpoint, DecisionEntry
 from bluebox.shared_kernel.domain.node import Node
 from bluebox.shared_kernel.domain.rbac import RBACModel
@@ -94,3 +95,12 @@ class TechStackProfileRepository(Protocol):
 class RBACModelRepository(Protocol):
     def save(self, project_id: str, model: RBACModel) -> None: ...
     def get(self, project_id: str) -> RBACModel | None: ...
+
+
+@runtime_checkable
+class PrdSubmissionRepository(Protocol):
+    """One persisted record per project - see `PrdSubmission`'s docstring
+    for why this exists outside the contract."""
+
+    def save(self, project_id: str, submission: PrdSubmission) -> None: ...
+    def get(self, project_id: str) -> PrdSubmission | None: ...

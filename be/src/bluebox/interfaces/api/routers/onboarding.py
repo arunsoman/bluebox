@@ -29,9 +29,10 @@ types converge on one LLM call.
 import uuid
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
+from bluebox.interfaces.api.auth import UserProfile, get_current_user
 from bluebox.interfaces.api.deps import get_onboarding_service
 from bluebox.interfaces.stage_advance import (
     FIRST_GENERATIVE_STAGE,
@@ -43,7 +44,8 @@ from bluebox.modules.core_pipeline.application.onboarding_service import (
     OnboardingResult,
     OnboardingService,
 )
-from bluebox.modules.input_processing.llm.responses import Stage0Seed
+from bluebox.modules.input_processing.domain.prd_submission import PrdSubmission
+from bluebox.modules.input_processing.llm.responses import PRDAnalysisReport, Stage0Seed
 from bluebox.shared_kernel.infrastructure.in_memory import app_state
 
 router = APIRouter(prefix="/api/v1/projects/{project_id}", tags=["onboarding"])
@@ -309,6 +311,98 @@ async def submit_input(
         )
 
     return result
+
+
+@router.get("/prd", response_model=PrdSubmission)
+def get_prd_submission(project_id: str) -> PrdSubmission:
+    """Not part of doc/api_event_contract.md - see `PrdSubmission`'s
+    docstring. Backs the IDE workspace's PRD tab showing a previously-
+    submitted PRD once the project has moved past onboarding (404 if
+    `/input` was never called for this project)."""
+
+    submission = app_state.prd_submissions.get(project_id)
+    if submission is None:
+        raise HTTPException(404, detail=f"no PRD submission recorded for project {project_id!r}")
+    return submission
+
+
+class SectionNameRequest(BaseModel):
+    """Shared body shape for the 4 of 5 PRD-analysis actions below that only
+    need to name a section. Not part of doc/api_event_contract.md - see
+    `get_prd_submission`'s docstring for the same precedent; these address
+    doc/prd.md AC-RI-06, which has no corresponding contract endpoint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    section_name: str
+
+
+class MapToStageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    section_name: str
+    stage: int
+
+
+@router.post("/prd/unmapped-sections/map-to-stage", response_model=PRDAnalysisReport)
+async def map_unmapped_section_to_stage(
+    project_id: str,
+    request: MapToStageRequest,
+    service: OnboardingService = Depends(get_onboarding_service),
+) -> PRDAnalysisReport:
+    try:
+        return await service.map_unmapped_section_to_stage(project_id, request.section_name, request.stage)
+    except ValueError as exc:
+        raise HTTPException(404, detail=str(exc)) from exc
+
+
+@router.post("/prd/unmapped-sections/save-as-annotation", response_model=PRDAnalysisReport)
+async def save_unmapped_section_as_annotation(
+    project_id: str,
+    request: SectionNameRequest,
+    user: UserProfile = Depends(get_current_user),
+    service: OnboardingService = Depends(get_onboarding_service),
+) -> PRDAnalysisReport:
+    try:
+        return await service.save_unmapped_section_as_annotation(project_id, request.section_name, user.user_id)
+    except ValueError as exc:
+        raise HTTPException(404, detail=str(exc)) from exc
+
+
+@router.post("/prd/unmapped-sections/mark-out-of-scope", response_model=PRDAnalysisReport)
+async def mark_unmapped_section_out_of_scope(
+    project_id: str,
+    request: SectionNameRequest,
+    service: OnboardingService = Depends(get_onboarding_service),
+) -> PRDAnalysisReport:
+    try:
+        return await service.mark_unmapped_section_out_of_scope(project_id, request.section_name)
+    except ValueError as exc:
+        raise HTTPException(404, detail=str(exc)) from exc
+
+
+@router.post("/prd/missing-sections/generate", response_model=PRDAnalysisReport)
+async def generate_missing_section_content(
+    project_id: str,
+    request: SectionNameRequest,
+    service: OnboardingService = Depends(get_onboarding_service),
+) -> PRDAnalysisReport:
+    try:
+        return await service.generate_missing_section_content(project_id, request.section_name)
+    except ValueError as exc:
+        raise HTTPException(404, detail=str(exc)) from exc
+
+
+@router.post("/prd/thin-sections/add-detail", response_model=PRDAnalysisReport)
+async def add_thin_section_detail(
+    project_id: str,
+    request: SectionNameRequest,
+    service: OnboardingService = Depends(get_onboarding_service),
+) -> PRDAnalysisReport:
+    try:
+        return await service.add_thin_section_detail(project_id, request.section_name)
+    except ValueError as exc:
+        raise HTTPException(404, detail=str(exc)) from exc
 
 
 @router.get("/dialogue/minimalist", response_model=MinimalistDialogue)

@@ -36,6 +36,7 @@ interface PrdState {
   unsubscribe: (() => void) | null;
 
   init: (projectId: string) => void;
+  setPrdReport: (report: PRDAnalysisReportType) => void;
   clearProcessingError: () => void;
   confirmCompliance: () => void;
   proceedToScale: () => void;
@@ -148,6 +149,7 @@ export const usePrdStore = create<PrdState>((set, get) => ({
     set({ unsubscribe: () => unsubscribers.forEach((u) => u()) });
   },
 
+  setPrdReport: (report) => set({ prdReport: report }),
   clearProcessingError: () => set({ processingError: null }),
   confirmCompliance: () => set({ complianceConfirmed: true }),
   proceedToScale: () => set({ screen: "scaleDialogue" }),

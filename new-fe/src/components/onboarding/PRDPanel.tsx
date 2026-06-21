@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePipelineStore, isOnboardingState } from "@/stores/pipelineStore";
 import { usePrdStore } from "@/stores/prdStore";
 import { useToast } from "@/components/common/Toast/ToastContext";
 import { ApiError } from "@/api/httpClient";
+import { onboardingApi } from "@/api/endpoints/onboarding";
 import { EmptyState } from "@/components/common/EmptyState";
+import { Spinner } from "@/components/common/Spinner";
 import { LandingScreen } from "./LandingScreen";
 import { InputProcessing } from "./InputProcessing";
 import { RichnessClassificationView } from "./RichnessClassificationView";
@@ -40,6 +42,7 @@ export function PRDPanel() {
   const steps = usePrdStore((s) => s.steps);
   const classification = usePrdStore((s) => s.classification);
   const prdReport = usePrdStore((s) => s.prdReport);
+  const setPrdReport = usePrdStore((s) => s.setPrdReport);
   const compliance = usePrdStore((s) => s.compliance);
   const complianceConfirmed = usePrdStore((s) => s.complianceConfirmed);
   const confirmCompliance = usePrdStore((s) => s.confirmCompliance);
@@ -64,9 +67,35 @@ export function PRDPanel() {
   const scaleSubmit = usePrdStore((s) => s.scaleSubmit);
   const selectHostingOption = usePrdStore((s) => s.selectHostingOption);
 
+  // Not part of doc/api_event_contract.md (see PrdSubmission in
+  // types.d.ts) - `prdReport` above only holds onboarding data for the
+  // duration of this browser session (usePrdStore isn't persisted), so a
+  // project reopened after onboarding completed has nothing to show
+  // without this fetch.
+  const [submission, setSubmission] = useState<PrdSubmission | null>(null);
+  const [submissionLoading, setSubmissionLoading] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+
   useEffect(() => {
     if (projectId) init(projectId);
   }, [projectId, init]);
+
+  useEffect(() => {
+    if (onboarding || !projectId || prdReport) return;
+    setSubmissionLoading(true);
+    setSubmissionError(null);
+    onboardingApi
+      .getPrdSubmission(projectId)
+      .then((result) => setSubmission(result))
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 404) {
+          setSubmission(null);
+        } else {
+          setSubmissionError(errorMessage(err));
+        }
+      })
+      .finally(() => setSubmissionLoading(false));
+  }, [onboarding, projectId, prdReport]);
 
   useEffect(() => {
     if (!processingError) return;
@@ -168,17 +197,53 @@ export function PRDPanel() {
   if (!projectId) return null;
 
   if (!onboarding) {
-    if (prdReport) {
+    const report = prdReport ?? submission?.prd_analysis ?? null;
+    if (report) {
       return (
         <div className={styles.panel}>
-          <PRDAnalysisReport report={prdReport} onProceed={() => {}} />
+          <PRDAnalysisReport
+            report={report}
+            projectId={projectId}
+            onReportChange={(updated) => {
+              if (prdReport) setPrdReport(updated);
+              else setSubmission((s) => (s ? { ...s, prd_analysis: updated } : s));
+            }}
+            onProceed={() => {}}
+            readOnly
+          />
+        </div>
+      );
+    }
+    if (submissionLoading) {
+      return (
+        <div className={styles.centered}>
+          <Spinner />
+        </div>
+      );
+    }
+    if (submission) {
+      // MINIMALIST/SEED_ONLY input never ran PRD analysis (OnboardingService
+      // only does that for WELL_FORMED) - all there is to show is the raw text.
+      return (
+        <div className={styles.panel}>
+          <div className={styles.rawSubmission}>
+            <p className={styles.rawSubmissionMeta}>
+              Submitted as free-form input (classified {submission.richness.mode}), not a structured PRD — no
+              section-by-section analysis was generated.
+            </p>
+            <pre className={styles.rawText}>{submission.raw_text}</pre>
+          </div>
         </div>
       );
     }
     return (
       <EmptyState
-        title="PRD already processed"
-        description="This project's PRD was already analyzed earlier in this pipeline run. Re-fetching a previously submitted PRD has no endpoint in the API contract, so it can't be viewed here after the fact."
+        title="No PRD on record"
+        description={
+          submissionError
+            ? `Could not load this project's submitted PRD: ${submissionError}`
+            : "This project hasn't had a PRD submitted yet."
+        }
       />
     );
   }
@@ -212,7 +277,12 @@ export function PRDPanel() {
       )}
 
       {screen === "prdAnalysis" && prdReport && (
-        <PRDAnalysisReport report={prdReport} onProceed={proceedToScale} />
+        <PRDAnalysisReport
+          report={prdReport}
+          projectId={projectId}
+          onReportChange={setPrdReport}
+          onProceed={proceedToScale}
+        />
       )}
 
       {screen === "minimalist" && minimalistDialogue && (

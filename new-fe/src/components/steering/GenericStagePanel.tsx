@@ -36,7 +36,10 @@ export function GenericStagePanel() {
     bookmarkedNodes,
     expandedNode,
     approvableIds,
+    approveAllLabel,
     goToImpactGraph,
+    regenerating,
+    regenerate,
   } = state;
 
   return (
@@ -51,8 +54,9 @@ export function GenericStagePanel() {
       totalPages={totalPages}
       contextWindow={panel.context_window}
       approveAll={{
-        disabled: approvableIds.length === 0,
+        disabled: false,
         loading: submitting,
+        label: approveAllLabel,
         onClick: () => submitAction("accept", { selected_node_ids: approvableIds }),
       }}
       reviewSelected={{
@@ -63,6 +67,7 @@ export function GenericStagePanel() {
       bookmarkCount={bookmarkedOptionIds.size}
       onShowBookmarks={() => setShowBookmarks(true)}
       onImpactGraph={goToImpactGraph}
+      regenerate={{ loading: regenerating, onClick: regenerate }}
       bookmarkDrawer={
         showBookmarks && (
           <BookmarkDrawer

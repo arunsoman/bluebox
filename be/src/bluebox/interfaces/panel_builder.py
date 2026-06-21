@@ -16,8 +16,14 @@ STAGE_NAMES = {
 }
 
 
-def build_steering_panel(orchestrator: PipelineOrchestrator, stage_id: int, candidates: Any) -> dict:
-    nodes = preview_nodes(stage_id, candidates)
+def build_steering_panel(
+    orchestrator: PipelineOrchestrator, stage_id: int, candidates: Any, node_ids: list[str]
+) -> dict:
+    # `node_ids` must be the same list `generate_node_ids` produced when this
+    # stage's candidates were first generated (see that function's
+    # docstring) - rendering with fresh ids on every call was the root cause
+    # of `modify` actions never finding the node they named.
+    nodes = preview_nodes(stage_id, candidates, node_ids)
 
     draft_output = []
     auto_approved_count = paused_count = critical_count = 0

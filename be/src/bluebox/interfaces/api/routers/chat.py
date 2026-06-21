@@ -5,6 +5,8 @@
 the advisory "generate" routes.
 """
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 
@@ -17,10 +19,18 @@ router = APIRouter(prefix="/api/v1/projects/{project_id}/chat", tags=["chat"])
 
 
 class SendMessageRequest(BaseModel):
+    """doc/api_event_contract.md SS4.1 `ChatMessage (Inbound)`. `intent` is
+    accepted to match the contract/frontend shape but not forwarded to
+    `ChatService.send_message` - the service already derives intent itself
+    via `parse_chat_intent` (an LLM call over `text`/`message_type`), so a
+    client-supplied hint would just be redundant input, never trusted over
+    the system's own classification."""
+
     model_config = ConfigDict(extra="forbid")
 
-    content: str
+    text: str
     message_type: str = "user_intent"
+    intent: Literal["command", "question", "what_if"] | None = None
     context_node_id: str | None = None
 
 
@@ -42,7 +52,7 @@ async def send_message(
     project_id: str, request: SendMessageRequest, service: ChatService = Depends(get_chat_service)
 ) -> ChatMessage:
     return await service.send_message(
-        project_id, request.content, message_type=request.message_type,
+        project_id, request.text, message_type=request.message_type,
         context_node_id=request.context_node_id,
     )
 

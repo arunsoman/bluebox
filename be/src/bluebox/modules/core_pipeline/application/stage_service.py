@@ -50,10 +50,30 @@ class StageService:
         tech_stack: TechStackSummary | None = None,
     ) -> Any:
         orchestrator = self._sessions.get_or_create(project_id)
+        if orchestrator.current_state == "AWAITING_STEERING":
+            # Regenerating a stage whose candidates are already cached (e.g. the LLM came back
+            # with a degenerate/empty result) - AWAITING_STEERING has no direct edge to
+            # STREAMING_CHUNKS (state_machine.py TRANSITIONS), but AWAITING_STEERING ->
+            # STAGE_RUNNING -> STREAMING_CHUNKS is the same two valid edges `accept_all`'s
+            # auto-advance already takes, so route through STAGE_RUNNING first instead of
+            # raising InvalidStateTransitionError on every re-generate attempt.
+            orchestrator.transition("STAGE_RUNNING", reason=f"regenerating stage {stage} candidates")
         orchestrator.transition("STREAMING_CHUNKS", reason=f"generating stage {stage} candidates")
         self._sessions.save(project_id, orchestrator)
 
-        result = await self._generate(project_id, stage, context=context, seed=seed, tech_stack=tech_stack)
+        try:
+            result = await self._generate(project_id, stage, context=context, seed=seed, tech_stack=tech_stack)
+        except Exception:
+            # Without this, a failed generation (LLM error, degenerate output that fails a
+            # later validation, etc.) leaves the orchestrator stuck at STREAMING_CHUNKS forever
+            # - STREAMING_CHUNKS has no edge back to AWAITING_STEERING except the success path
+            # above, so every subsequent regenerate attempt would 409 instead of retrying.
+            # STREAMING_CHUNKS -> STAGE_RUNNING is already a valid edge (state_machine.py
+            # TRANSITIONS); landing there lets a retry's STAGE_RUNNING -> STREAMING_CHUNKS run
+            # cleanly, same as a stage that's never been generated yet.
+            orchestrator.transition("STAGE_RUNNING", reason=f"stage {stage} generation failed")
+            self._sessions.save(project_id, orchestrator)
+            raise
 
         orchestrator.transition("AWAITING_STEERING", reason=f"stage {stage} draft ready")
         self._sessions.save(project_id, orchestrator)

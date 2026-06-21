@@ -61,6 +61,18 @@ class SeedSynthesisRequest(LLMRequest):
     answers: dict[str, str | list[str] | float]
 
 
+class SectionContentDraftRequest(LLMRequest):
+    """Not in doc/api_event_contract.md - backs the "Generate"/"Add detail"
+    actions (doc/prd.md AC-RI-06) on a missing or thin PRD section.
+    `guidance` carries what's specifically needed: a `MissingSection`'s
+    stage/severity for "Generate", or a `ThinSection`'s own
+    `suggested_prompt` for "Add detail"."""
+
+    raw_prd_text: str
+    section_name: str
+    guidance: str
+
+
 class LegacyContextSummaryRequest(LLMRequest):
     """doc/api_event_contract.md SS2.1 LegacyContextReport; doc/prd.md SS4.1 LegacyIngestor.
 

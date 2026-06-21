@@ -1,0 +1,74 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: ◆
+        - generic [ref=e7]: BLUEBOX
+      - generic [ref=e8]:
+        - generic [ref=e10]: ONLINE
+        - generic [ref=e11]: │
+        - generic [ref=e25]: dev@bluebox.local
+        - button "logout" [ref=e12] [cursor=pointer]
+    - main [ref=e13]:
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e29]:
+            - generic [ref=e31]:
+              - button "FILES" [ref=e32] [cursor=pointer]
+              - button "CHAT" [ref=e33] [cursor=pointer]
+            - generic [ref=e35]:
+              - generic [ref=e36]:
+                - generic [ref=e37]: Explorer
+                - button "↻" [ref=e38] [cursor=pointer]
+              - generic [ref=e39]:
+                - paragraph [ref=e40]: No files yet
+                - paragraph [ref=e41]: Files will appear during code generation.
+          - generic [ref=e43]:
+            - generic [ref=e44]:
+              - generic [ref=e45]:
+                - button "PROJECTS" [ref=e46] [cursor=pointer]
+                - button "PRD" [ref=e47] [cursor=pointer]
+                - button "STEER" [active] [ref=e48] [cursor=pointer]
+                - button "GRAPH" [ref=e49] [cursor=pointer]
+                - button "CODEGEN" [ref=e50] [cursor=pointer]
+                - button "EDITOR" [ref=e51] [cursor=pointer]
+              - generic [ref=e53]: UTF-8 | TypeScript
+            - generic [ref=e146]:
+              - generic [ref=e147]:
+                - heading "User Story Decomposition" [level=2] [ref=e148]
+                - paragraph [ref=e149]: Decompose use cases into implementable user stories
+              - generic [ref=e150]:
+                - generic [ref=e151]:
+                  - button "Summary" [ref=e152] [cursor=pointer]
+                  - button "Detail" [ref=e153] [cursor=pointer]
+                - generic [ref=e154]:
+                  - generic [ref=e155]: "Trust: BALANCED (0 auto-approved, 0 paused, 0 CRITICAL)"
+                  - button "↻ Regenerate" [ref=e156] [cursor=pointer]
+              - strong [ref=e159]: Why these outputs?
+              - generic [ref=e161]: "Revision Budget: 5 / 5 remaining"
+              - generic [ref=e164]:
+                - button "Continue" [ref=e165] [cursor=pointer]
+                - button "Approve Selected" [disabled] [ref=e166]
+                - button "★ Bookmarks (0)" [ref=e167] [cursor=pointer]
+                - button "View Impact Graph" [ref=e168] [cursor=pointer]
+        - generic [ref=e134]:
+          - generic [ref=e136]:
+            - button "TERMINAL" [ref=e137] [cursor=pointer]
+            - button "TEST" [ref=e138] [cursor=pointer]
+            - button "AUDIT" [ref=e139] [cursor=pointer]
+          - generic [ref=e141]:
+            - generic [ref=e142]: <
+            - generic [ref=e143]: Terminal
+            - generic [ref=e144]: />
+            - generic [ref=e145]: Deferred — out of scope for this pass.
+    - contentinfo [ref=e14]:
+      - generic [ref=e16]: NORMAL
+      - generic [ref=e17]:
+        - generic [ref=e18]: ^P Command
+        - generic [ref=e19]: ^S Save
+        - generic [ref=e20]: ^K Checkpoint
+      - generic [ref=e21]:
+        - generic [ref=e22]: Ln 42, Col 18
+        - generic [ref=e23]: │
+        - generic [ref=e24]: v2.4.0
+  - region "Notifications"

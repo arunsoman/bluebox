@@ -7,9 +7,17 @@ interface ChatState {
   messages: ChatMessage[];
   loading: boolean;
   sending: boolean;
+  /** One-shot prefill text for the chat input, set by components handing off context (e.g.
+   * "Discuss in chat" on a PRD conflict) - ChatPanel consumes it on mount/update then clears it. */
+  draftMessage: string | null;
   unsubscribe: (() => void) | null;
+  /** Number of mounted ChatPanel instances sharing this store (the docked sidebar panel and
+   * ChatPopupModal can both be mounted at once) - teardown() only actually unsubscribes/resets
+   * once the last instance unmounts, otherwise closing one would blank the other. */
+  refCount: number;
   init: (projectId: string) => Promise<void>;
   send: (text: string, intent?: "command" | "question" | "what_if") => Promise<void>;
+  setDraftMessage: (text: string | null) => void;
   teardown: () => void;
 }
 
@@ -24,12 +32,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   loading: false,
   sending: false,
+  draftMessage: null,
   unsubscribe: null,
+  refCount: 0,
 
   init: async (projectId) => {
-    if (get().projectId === projectId) return;
+    if (get().projectId === projectId) {
+      set((s) => ({ refCount: s.refCount + 1 }));
+      return;
+    }
     get().unsubscribe?.();
-    set({ projectId, messages: [], loading: true });
+    set({ projectId, messages: [], loading: true, refCount: 1 });
 
     try {
       const history = await chatApi.getHistory(projectId, { limit: 50, include_system: true });
@@ -86,8 +99,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  setDraftMessage: (text) => set({ draftMessage: text }),
+
   teardown: () => {
+    const remaining = get().refCount - 1;
+    if (remaining > 0) {
+      set({ refCount: remaining });
+      return;
+    }
     get().unsubscribe?.();
-    set({ projectId: null, messages: [], unsubscribe: null });
+    set({ projectId: null, messages: [], unsubscribe: null, refCount: 0 });
   },
 }));

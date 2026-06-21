@@ -11,9 +11,10 @@ import { GenericStagePanel } from "./GenericStagePanel";
 
 /**
  * Dispatches to the stage-specific panel for the current SteeringPanel's
- * stage_id (mock_server.py's numbering: 1=Actor Discovery, 2=Capability
- * Definition, 3=Use Case, 4=Story, 5=Task Decomposition). Any other
- * stage_id falls back to the generic renderer.
+ * stage_id. Live backend numbering (be/.../steering_service.py
+ * `_STAGE_NAMES`, stage_advance.py's FIRST/LAST_GENERATIVE_STAGE): 2=Actor
+ * Discovery, 3=Capability Definition, 4=Use Case, 5=User Story, 6=Task
+ * Decomposition. Any other stage_id falls back to the generic renderer.
  */
 export function SteeringPanelView() {
   const projectId = usePipelineStore((s) => s.projectId);
@@ -34,15 +35,15 @@ export function SteeringPanelView() {
   }
 
   switch (panel.stage_id) {
-    case 1:
-      return <ActorDiscoveryPanel />;
     case 2:
-      return <CapabilityDefinitionPanel />;
+      return <ActorDiscoveryPanel />;
     case 3:
-      return <UseCaseDecompositionPanel />;
+      return <CapabilityDefinitionPanel />;
     case 4:
-      return <StoryDecompositionPanel />;
+      return <UseCaseDecompositionPanel />;
     case 5:
+      return <StoryDecompositionPanel />;
+    case 6:
       return <TaskDecompositionPanel />;
     default:
       return <GenericStagePanel />;

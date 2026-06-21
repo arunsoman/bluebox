@@ -23,6 +23,7 @@ from bluebox.modules.chat.domain.chat_message import ChatMessage
 from bluebox.modules.code_generation.domain.workspace import GeneratedFile, WorkspaceManifest
 from bluebox.modules.core_pipeline.domain.project import Project
 from bluebox.modules.core_pipeline.domain.state_machine import PipelineOrchestrator
+from bluebox.modules.input_processing.domain.prd_submission import PrdSubmission
 from bluebox.shared_kernel.domain.audit import AuditEvent, Checkpoint, DecisionEntry
 from bluebox.shared_kernel.domain.node import Node
 from bluebox.shared_kernel.domain.rbac import RBACModel
@@ -35,6 +36,7 @@ from bluebox.shared_kernel.infrastructure.sqlite_backend import (
     SqliteInfrastructureProfileRepository,
     SqliteNodeRepository,
     SqlitePendingDict,
+    SqlitePrdSubmissionRepository,
     SqliteProjectRepository,
     SqliteRBACModelRepository,
     SqliteSessionRepository,
@@ -215,6 +217,17 @@ class InMemoryRBACModelRepository:
         return self._models.get(project_id)
 
 
+class InMemoryPrdSubmissionRepository:
+    def __init__(self) -> None:
+        self._submissions: dict[str, PrdSubmission] = {}
+
+    def save(self, project_id: str, submission: PrdSubmission) -> None:
+        self._submissions[project_id] = submission
+
+    def get(self, project_id: str) -> PrdSubmission | None:
+        return self._submissions.get(project_id)
+
+
 class AppState:
     """Process-wide bundle of every repository. FastAPI dependencies
     (`interfaces/api/deps.py`) pull from one shared instance so every
@@ -251,6 +264,7 @@ class AppState:
         self.infrastructure_profiles = SqliteInfrastructureProfileRepository(db_path)
         self.tech_stack_profiles = SqliteTechStackProfileRepository(db_path)
         self.rbac_models = SqliteRBACModelRepository(db_path)
+        self.prd_submissions = SqlitePrdSubmissionRepository(db_path)
 
 
 app_state = AppState()

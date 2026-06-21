@@ -1,0 +1,175 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: ◆
+        - generic [ref=e7]: BLUEBOX
+      - generic [ref=e8]:
+        - generic [ref=e10]: ONLINE
+        - generic [ref=e11]: │
+        - generic [ref=e25]: dev@bluebox.local
+        - button "logout" [ref=e12] [cursor=pointer]
+    - main [ref=e13]:
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e29]:
+            - generic [ref=e31]:
+              - button "FILES" [ref=e32] [cursor=pointer]
+              - button "CHAT" [ref=e33] [cursor=pointer]
+            - generic [ref=e35]:
+              - generic [ref=e36]:
+                - generic [ref=e37]: Explorer
+                - button "↻" [ref=e38] [cursor=pointer]
+              - generic [ref=e39]:
+                - paragraph [ref=e40]: No files yet
+                - paragraph [ref=e41]: Files will appear during code generation.
+          - generic [ref=e43]:
+            - generic [ref=e44]:
+              - generic [ref=e45]:
+                - button "PROJECTS" [ref=e46] [cursor=pointer]
+                - button "PRD" [ref=e47] [cursor=pointer]
+                - button "STEER" [ref=e48] [cursor=pointer]
+                - button "GRAPH" [ref=e49] [cursor=pointer]
+                - button "CODEGEN" [ref=e50] [cursor=pointer]
+                - button "EDITOR" [ref=e51] [cursor=pointer]
+              - generic [ref=e53]: UTF-8 | TypeScript
+            - generic [ref=e57]:
+              - heading "PRD Analysis Report" [level=1] [ref=e58]
+              - generic [ref=e59]:
+                - heading "Explicit Sections (7)" [level=2] [ref=e60]
+                - list [ref=e61]:
+                  - listitem [ref=e62]:
+                    - generic [ref=e63]:
+                      - text: Actors
+                      - generic [ref=e64]: → Stage 2
+                  - listitem [ref=e65]:
+                    - generic [ref=e66]:
+                      - text: Capabilities
+                      - generic [ref=e67]: → Stage 3
+                  - listitem [ref=e68]:
+                    - generic [ref=e69]:
+                      - text: Use Cases
+                      - generic [ref=e70]: → Stage 4
+                  - listitem [ref=e71]:
+                    - generic [ref=e72]:
+                      - text: NFRs
+                      - generic [ref=e73]: → Stage 8
+                  - listitem [ref=e74]:
+                    - generic [ref=e75]:
+                      - text: Data Model
+                      - generic [ref=e76]: → Stage 7
+                  - listitem [ref=e77]:
+                    - generic [ref=e78]:
+                      - text: Out of Scope
+                      - generic [ref=e79]: → Stage 1
+                  - listitem [ref=e80]:
+                    - generic [ref=e81]:
+                      - text: Target Users
+                      - generic [ref=e82]: → Stage 2
+              - generic [ref=e83]:
+                - heading "Thin Sections (2)" [level=2] [ref=e84]
+                - list [ref=e85]:
+                  - listitem [ref=e86]:
+                    - generic [ref=e87]:
+                      - text: NFRs —
+                      - generic [ref=e88]: "Explicit NFR section (Section 11) lacks sub-categories: no Security subsection, no explicit Scalability/Availability targets, no Data Retention policy. 'Success Metrics' (Section 9) contains performance targets (200ms API response) and reliability targets (100% detection, minimax correctness) that are functionally NFRs but are not in the NFRs section. Accessibility is mentioned but without WCAG level. No mention of logging, monitoring, or error handling standards."
+                      - button "Add detail" [ref=e89] [cursor=pointer]
+                  - listitem [ref=e90]:
+                    - generic [ref=e91]:
+                      - text: Data Model —
+                      - generic [ref=e92]: Section 10 mentions H2 as the persistence layer for 'sessions, games, moves, and score tallies' but does not provide a schema, entity-relationship diagram, or field definitions. There is no explicit Data Model section. Mentioned entities (Game, Move, Session, Score) are undefined.
+                      - button "Add detail" [ref=e93] [cursor=pointer]
+                    - generic [ref=e94]: "**Session** — persistent per-browser-session identity with no login. Stores an auto-generated opaque session token, an optional display name, and timestamps for lifecycle tracking. A session owns many `Game` and `Score` records. Constraints: `id` is the primary key (UUID or auto-increment). `display_name` allows null/empty; `last_active_at` updates on every API call to prevent stale sessions from accumulating orphaned data. Relationship: `1:N` with `Game`, `1:N` with `Score` (with mode/difficulty breakdown). <br><br>**Game** — a single game instance in either `PvP` or `PvC` mode. Tracks board state, turn order, outcome, and metadata. Columns: `id` (PK), `session_id` (FK → Session, indexed), `mode` (`PvP` or `PvC`), `difficulty` (`EASY`, `MEDIUM`, `HARD`, or null for PvP), `status` (`IN_PROGRESS`, `WON`, `DRAW`, `ABANDONED`), `board_state` (serialized 3x3 representation, e.g. a length-9 character array or JSON string of `X`, `O`, `_`), `current_player` (`X` or `O`), `winner` (`X`, `O`, or null), `starting_player` (`X` or `O`), `move_count` (int, 0-9), `created_at`, `ended_at`. Constraints: `difficulty` must be non-null only when `mode` = `PvC`. `winner` and `ended_at` are populated only when `status` transitions to `WON`, `DRAW`, or `ABANDONED`. `board_state` must always contain exactly 9 characters/elements. <br><br>**Move** — an atomic turn taken within a `Game`. Immutable once recorded. Columns: `id` (PK), `game_id` (FK → Game, indexed), `player_mark` (`X` or `O`), `cell_row` (0, 1, or 2), `cell_column` (0, 1, or 2), `move_number` (positive int, starting at 1 per game), `timestamp`. Constraints: composite unique constraint on (`game_id`, `move_number`) enforces sequential turn order. `cell_row` and `cell_column` each must be between 0 and 2, inclusive. A unique constraint on (`game_id`, `cell_row`, `cell_column`) prevents duplicate occupation. `move_number` 1 is always `X`; odd numbers are `X`, even numbers are `O`. The move’s `player_mark` must match `Game.current_player` at the time of insertion. <br><br>**Score** — per-session aggregated tallies, split by mode/difficulty combination so a player can track separate records for PvP, PvC-Easy, PvC-Medium, and PvC-Hard. Columns: `id` (PK), `session_id` (FK → Session, indexed), `wins` (int, ≥ 0), `losses` (int, ≥ 0), `draws` (int, ≥ 0), `mode`, `difficulty`. Constraints: composite unique constraint on (`session_id`, `mode`, `difficulty`) (difficulty omitted or set to a sentinel where `mode` = `PvP`). `wins`, `losses`, and `draws` are non-negative. Totals increment only upon game completion, never on abandon. <br><br>**Relationship Summary**: A `Session` has many `Game` records (active and completed). Each `Game` has many `Move` records, ordered by `move_number`. A `Session` has many `Score` records, one per (`mode`, `difficulty`) pair. The `Match History` feature (C5/UC-4) is served by querying `Game` (filter by `session_id`, `status` in (`WON`, `DRAW`), order by `created_at` DESC, paginated), joined to its `Move` count (or the stored `move_count` denormalized on `Game`)."
+              - generic [ref=e95]:
+                - heading "Missing Sections (3)" [level=2] [ref=e96]
+                - list [ref=e97]:
+                  - listitem [ref=e98]:
+                    - generic [ref=e99]:
+                      - text: Security
+                      - button "Generate" [ref=e100] [cursor=pointer]
+                    - generic [ref=e101]: "## 12. Security Requirements (Non-Negotiable / Pipeline Stage 6 – Blocking if Unmet)"
+                  - listitem [ref=e102]:
+                    - generic [ref=e103]:
+                      - text: Deployment
+                      - button "Generate" [ref=e104] [cursor=pointer]
+                  - listitem [ref=e105]:
+                    - generic [ref=e106]:
+                      - text: API Specification
+                      - button "Generate" [ref=e107] [cursor=pointer]
+              - generic [ref=e108]:
+                - heading "Unmapped Sections (2)" [level=2] [ref=e109]
+                - list [ref=e110]:
+                  - listitem [ref=e111]:
+                    - generic [ref=e112]:
+                      - text: User Stories
+                      - generic [ref=e113]:
+                        - combobox [ref=e114] [cursor=pointer]:
+                          - 'option "0: Seed / Problem Statement"'
+                          - 'option "1: Ideation"'
+                          - 'option "2: Actors"'
+                          - 'option "3: Capabilities"'
+                          - 'option "4: Use Cases"'
+                          - 'option "5: User Stories"'
+                          - 'option "6: Engineering Tasks"'
+                          - 'option "7: Finalization" [selected]'
+                          - 'option "8: Code Generation"'
+                          - 'option "9: Runtime"'
+                        - button "Map to Stage" [ref=e115] [cursor=pointer]
+                        - button "Save as Annotation" [ref=e116] [cursor=pointer]
+                        - button "Out of Scope" [ref=e117] [cursor=pointer]
+                  - listitem [ref=e118]:
+                    - generic [ref=e119]:
+                      - text: Constraints
+                      - generic [ref=e120]:
+                        - combobox [ref=e121] [cursor=pointer]:
+                          - 'option "0: Seed / Problem Statement"'
+                          - 'option "1: Ideation"'
+                          - 'option "2: Actors"'
+                          - 'option "3: Capabilities"'
+                          - 'option "4: Use Cases"'
+                          - 'option "5: User Stories"'
+                          - 'option "6: Engineering Tasks"'
+                          - 'option "7: Finalization" [selected]'
+                          - 'option "8: Code Generation"'
+                          - 'option "9: Runtime"'
+                        - button "Map to Stage" [ref=e122] [cursor=pointer]
+                        - button "Save as Annotation" [ref=e123] [cursor=pointer]
+                        - button "Out of Scope" [ref=e124] [cursor=pointer]
+                - paragraph [ref=e125]: "Out of scope: Success Metrics"
+              - generic [ref=e126]:
+                - heading "Conflicts (3)" [level=2] [ref=e127]
+                - list [ref=e128]:
+                  - listitem [ref=e129]:
+                    - generic [ref=e130]:
+                      - text: "Difficulty strategy is described in both Core Functionality (Section 3.2: 'EASY (random legal move)', 'MEDIUM (blocks an immediate opponent win, otherwise random)', 'HARD (unbeatable - minimax algorithm)') and repeated in Use Case UC-2 ('picks difficulty (Easy/Medium/Hard)'). While consistent, this creates dual maintenance points if difficulty names or behavior change. More critically, Core Functionality says 'selectable' difficulty but does not enumerate the selection mechanism, while UC-2 assumes a UI pick without specifying it as a configuration step in the capability."
+                      - button "Discuss in chat" [ref=e131] [cursor=pointer]
+                  - listitem [ref=e132]:
+                    - generic [ref=e133]:
+                      - text: Score Tracking (C4) specifies 'Increment win/loss/draw counters tied to the current session after each completed game,' but UC-5 (Reset/abandon) states that an abandoned game 'is marked abandoned (not counted in score)'. However, Core Functionality (Section 3.5) claims the scoreboard 'survives a page refresh' but does not specify whether abandoned games in progress survive the refresh. The Use Case flow says 'page refresh mid-game restores the current board' but the Core Functionality says 'server is authoritative on whose turn it is' - both combined with the abandonment rule create ambiguity about whether a mid-game refresh is treated as abandon or resume.
+                      - button "Discuss in chat" [ref=e134] [cursor=pointer]
+                  - listitem [ref=e135]:
+                    - generic [ref=e136]:
+                      - text: "The Actors section defines only two actors: 'Player' and 'ComputerOpponent'. However, Target Users (Section 2) defines four distinct user groups including 'Developers/evaluators of the bluebox platform who want a small but end-to-end (UI + API + DB) reference application.' This actor is not present in the Actors table, creating a contradiction between who the product is for and who the system recognizes. Additionally, the 'ComputerOpponent' is labeled as an Actor but is a server-side algorithm; the PRD does not clarify if it is an external system, internal service, or subsystem actor."
+                      - button "Discuss in chat" [ref=e137] [cursor=pointer]
+              - button "Go to Steering →" [ref=e139] [cursor=pointer]
+        - generic [ref=e141]:
+          - generic [ref=e143]:
+            - button "TERMINAL" [ref=e144] [cursor=pointer]
+            - button "TEST" [ref=e145] [cursor=pointer]
+            - button "AUDIT" [ref=e146] [cursor=pointer]
+          - generic [ref=e148]:
+            - generic [ref=e149]: <
+            - generic [ref=e150]: Terminal
+            - generic [ref=e151]: />
+            - generic [ref=e152]: Deferred — out of scope for this pass.
+    - contentinfo [ref=e14]:
+      - generic [ref=e16]: NORMAL
+      - generic [ref=e17]:
+        - generic [ref=e18]: ^P Command
+        - generic [ref=e19]: ^S Save
+        - generic [ref=e20]: ^K Checkpoint
+      - generic [ref=e21]:
+        - generic [ref=e22]: Ln 42, Col 18
+        - generic [ref=e23]: │
+        - generic [ref=e24]: v2.4.0
+  - region "Notifications"

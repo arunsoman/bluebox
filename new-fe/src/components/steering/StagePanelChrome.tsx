@@ -15,12 +15,15 @@ interface StagePanelChromeProps {
   children: ReactNode;
   /** Extra row rendered between the context window and the action bar (e.g. revision budget meter). */
   extraRow?: ReactNode;
-  approveAll: { disabled: boolean; loading: boolean; title?: string; onClick: () => void };
+  approveAll: { disabled: boolean; loading: boolean; title?: string; label?: string; onClick: () => void };
   reviewSelected: { disabled: boolean; loading: boolean; onClick: () => void };
   bookmarkCount: number;
   onShowBookmarks: () => void;
   onImpactGraph: () => void;
   bookmarkDrawer?: ReactNode;
+  /** Re-runs this stage's generation in place - recovery path for a degenerate/empty LLM
+   * result, since there's otherwise no way back once a stage's candidates are cached. */
+  regenerate: { loading: boolean; onClick: () => void };
 }
 
 /** Shared chrome (header/toolbar/pagination/context-window/action-bar) behind all five stage-specific steering panels. */
@@ -42,6 +45,7 @@ export function StagePanelChrome({
   onShowBookmarks,
   onImpactGraph,
   bookmarkDrawer,
+  regenerate,
 }: StagePanelChromeProps) {
   return (
     <div className={styles.panel}>
@@ -59,7 +63,12 @@ export function StagePanelChrome({
             Detail
           </button>
         </div>
-        <span className={styles.trustChip}>{trustSummary}</span>
+        <div className={styles.toolbarRight}>
+          <span className={styles.trustChip}>{trustSummary}</span>
+          <button className={styles.impactLink} disabled={regenerate.loading} onClick={regenerate.onClick}>
+            {regenerate.loading ? "Regenerating…" : "↻ Regenerate"}
+          </button>
+        </div>
       </div>
 
       <div className={styles.nodeList}>{children}</div>
@@ -86,10 +95,10 @@ export function StagePanelChrome({
 
       <div className={styles.actionBar}>
         <Button loading={approveAll.loading} disabled={approveAll.disabled} title={approveAll.title} onClick={approveAll.onClick}>
-          Approve All
+          {approveAll.label ?? "Approve All"}
         </Button>
         <Button variant="secondary" loading={reviewSelected.loading} disabled={reviewSelected.disabled} onClick={reviewSelected.onClick}>
-          Review Selected
+          Approve Selected
         </Button>
         <button className={styles.bookmarkToggle} onClick={onShowBookmarks}>
           ★ Bookmarks ({bookmarkCount})

@@ -9,6 +9,8 @@ fully-specified analog (`ExistingActor`) and from mock_server.py's
 
 from typing import Literal
 
+from pydantic import Field
+
 from bluebox.shared_kernel.llm.base import LLMResponse
 
 RichnessMode = Literal["WELL_FORMED", "MINIMALIST", "SEED_ONLY"]
@@ -41,6 +43,9 @@ class ThinSection(LLMResponse):
     section_name: str
     missing_detail: str
     suggested_prompt: str
+    # Not in the contract - populated by the "Add detail" action
+    # (doc/prd.md AC-RI-06) calling `draft_section_content`, None until then.
+    generated_content: str | None = None
 
 
 class MissingSection(LLMResponse):
@@ -49,6 +54,9 @@ class MissingSection(LLMResponse):
     expected_section_name: str
     pipeline_stage: int
     severity: Literal["blocking", "recommended"]
+    # Not in the contract - populated by the "Generate" action
+    # (doc/prd.md AC-RI-06) calling `draft_section_content`, None until then.
+    generated_content: str | None = None
 
 
 class UnmappedSection(LLMResponse):
@@ -76,6 +84,17 @@ class PRDAnalysisReport(LLMResponse):
     unmapped_sections: list[UnmappedSection]
     conflicts: list[PRDConflict]
     richness_classification: RichnessClassification
+    # Not in the contract - section names moved here by the "Out of Scope"
+    # action (doc/prd.md AC-RI-06), removed from unmapped_sections.
+    out_of_scope_sections: list[str] = Field(default_factory=list)
+
+
+class SectionContentDraft(LLMResponse):
+    """Not in doc/api_event_contract.md - backs the "Generate"/"Add detail"
+    actions (doc/prd.md AC-RI-06) on a missing or thin PRD section."""
+
+    section_name: str
+    content: str
 
 
 class PRDChunkAnalysisResult(LLMResponse):

@@ -20,6 +20,8 @@ export function ChatPanel() {
   const loading = useChatStore((s) => s.loading);
   const sending = useChatStore((s) => s.sending);
   const send = useChatStore((s) => s.send);
+  const draftMessage = useChatStore((s) => s.draftMessage);
+  const setDraftMessage = useChatStore((s) => s.setDraftMessage);
   const showCheckpoints = useCheckpointRestoreStore((s) => s.show);
   const { pushToast } = useToast();
 
@@ -30,6 +32,14 @@ export function ChatPanel() {
     if (projectId) void init(projectId);
     return () => teardown();
   }, [projectId, init, teardown]);
+
+  // One-shot prefill from another component (e.g. PRDAnalysisReport's "Discuss in chat") -
+  // seed the input then clear the store field so it doesn't refire on the next render.
+  useEffect(() => {
+    if (draftMessage === null) return;
+    setInput(draftMessage);
+    setDraftMessage(null);
+  }, [draftMessage, setDraftMessage]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });

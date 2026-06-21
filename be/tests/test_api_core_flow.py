@@ -110,6 +110,90 @@ def test_create_and_get_project(client: TestClient) -> None:
     assert response.json()["project_name"] == "Dental SaaS"
 
 
+def test_get_prd_submission_404s_before_input_and_returns_record_after(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    before = client.get(f"/api/v1/projects/{project_id}/prd", headers=headers)
+    assert before.status_code == 404
+
+    onboarding = client.post(
+        f"/api/v1/projects/{project_id}/input",
+        json={"source": "text", "text": "A dental SaaS with patients and dentists."},
+        headers=headers,
+    )
+    assert onboarding.status_code == 200, onboarding.text
+
+    after = client.get(f"/api/v1/projects/{project_id}/prd", headers=headers)
+    assert after.status_code == 200, after.text
+    record = after.json()
+    assert record["raw_text"] == "A dental SaaS with patients and dentists."
+    assert record["richness"] == onboarding.json()["richness"]
+    assert record["prd_analysis"] == onboarding.json()["prd_analysis"]
+
+
+def test_modify_action_edits_node_before_accept(client: TestClient) -> None:
+    """End-to-end regression: a `node_id` shown in `GET .../steering/2` must
+    still resolve when later named in a `modify` action, the edit must show
+    up in a re-fetched panel, and the eventually-accepted node must carry
+    the edited description through to the committed `Node` - all three
+    broke when `node_id`s were regenerated on every panel render."""
+
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    onboarding = client.post(
+        f"/api/v1/projects/{project_id}/input",
+        json={"source": "text", "text": "A dental SaaS with patients and dentists."},
+        headers=headers,
+    )
+    assert onboarding.status_code == 200, onboarding.text
+    resume = client.post(f"/api/v1/projects/{project_id}/resume", headers=headers)
+    if resume.json()["current_state"] == "AWAITING_INPUT_SEED":
+        pytest.skip("TestModel produced a non-WELL_FORMED classification this run")
+
+    panel = client.get(f"/api/v1/projects/{project_id}/steering/2", headers=headers).json()
+    target = panel["draft_output"][0]
+    new_description = "Edited description via the steering panel's inline editor."
+
+    modify = client.post(
+        f"/api/v1/projects/{project_id}/steering",
+        json={
+            "action_type": "modify",
+            "stage_id": 2,
+            "payload": {
+                "modified_nodes": [
+                    {
+                        "node_id": target["node_id"],
+                        "field_path": "description",
+                        "new_value": new_description,
+                        "old_value": target["description"],
+                    }
+                ]
+            },
+            "timestamp": "2026-06-21T12:00:00Z",
+        },
+        headers=headers,
+    )
+    assert modify.status_code == 200, modify.text
+    assert modify.json()["impacted_nodes"] == 1
+
+    panel_after_modify = client.get(f"/api/v1/projects/{project_id}/steering/2", headers=headers).json()
+    edited = next(n for n in panel_after_modify["draft_output"] if n["node_id"] == target["node_id"])
+    assert edited["description"] == new_description
+
+    accept = client.post(
+        f"/api/v1/projects/{project_id}/steering",
+        json={"action_type": "accept", "stage_id": 2, "payload": {}, "timestamp": "2026-06-21T12:00:01Z"},
+        headers=headers,
+    )
+    assert accept.status_code == 200, accept.text
+
+    nodes = client.get(f"/api/v1/projects/{project_id}/graph", headers=headers).json()["nodes"]
+    committed = next(n for n in nodes if n["id"] == target["node_id"])
+    assert committed["data"]["description"] == new_description
+
+
 def test_full_steering_flow_commits_actor_nodes(client: TestClient) -> None:
     headers = _auth_headers(client)
     project_id = _create_project(client, headers)
@@ -135,9 +219,13 @@ def test_full_steering_flow_commits_actor_nodes(client: TestClient) -> None:
     assert panel["stage_id"] == 2
     assert panel["total_nodes"] >= 1
 
+    # `timestamp` matches what `steeringStore.submitAction` actually sends
+    # on every real call (doc/api_event_contract.md SS4.2 `SteeringAction`) -
+    # regression for the field being rejected with a 422 because the
+    # backend's request model didn't declare it under `extra="forbid"`.
     result = client.post(
         f"/api/v1/projects/{project_id}/steering",
-        json={"action_type": "accept", "stage_id": 2, "payload": {}},
+        json={"action_type": "accept", "stage_id": 2, "payload": {}, "timestamp": "2026-06-21T12:00:00Z"},
         headers=headers,
     )
     assert result.status_code == 200, result.text
@@ -146,6 +234,60 @@ def test_full_steering_flow_commits_actor_nodes(client: TestClient) -> None:
     # Generation result was consumed - re-fetching the panel now 404s.
     panel_after = client.get(f"/api/v1/projects/{project_id}/steering/2", headers=headers)
     assert panel_after.status_code == 404
+
+
+def test_partial_accept_keeps_stage_open_for_remaining_candidates(client: TestClient) -> None:
+    """"Approve Selected" with some boxes left unchecked must only commit the selected subset
+    and leave the rest of the stage's panel open for a follow-up accept - regression for
+    accept_all previously committing the ENTIRE candidate batch regardless of
+    `selected_node_ids`, which made "Approve Selected" behave identically to "Approve All"."""
+
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    onboarding = client.post(
+        f"/api/v1/projects/{project_id}/input",
+        json={"source": "text", "text": "A dental SaaS with patients and dentists."},
+        headers=headers,
+    )
+    assert onboarding.status_code == 200, onboarding.text
+    resume = client.post(f"/api/v1/projects/{project_id}/resume", headers=headers)
+    if resume.json()["current_state"] == "AWAITING_INPUT_SEED":
+        pytest.skip("TestModel produced a non-WELL_FORMED classification this run")
+
+    panel = client.get(f"/api/v1/projects/{project_id}/steering/2", headers=headers).json()
+    node_ids = [n["node_id"] for n in panel["draft_output"]]
+    if len(node_ids) < 2:
+        pytest.skip("TestModel produced fewer than 2 actor candidates this run")
+
+    first_half, second_half = node_ids[:1], node_ids[1:]
+
+    result = client.post(
+        f"/api/v1/projects/{project_id}/steering",
+        json={"action_type": "accept", "stage_id": 2, "payload": {"selected_node_ids": first_half}},
+        headers=headers,
+    )
+    assert result.status_code == 200, result.text
+    assert result.json()["impacted_nodes"] == len(first_half)
+
+    # Stage 2's panel must still be open (not 404) with only the unselected nodes left.
+    panel_after = client.get(f"/api/v1/projects/{project_id}/steering/2", headers=headers)
+    assert panel_after.status_code == 200, panel_after.text
+    remaining_ids = [n["node_id"] for n in panel_after.json()["draft_output"]]
+    assert set(remaining_ids) == set(second_half)
+
+    nodes_so_far = client.get(f"/api/v1/projects/{project_id}/graph", headers=headers).json()["nodes"]
+    assert {n["id"] for n in nodes_so_far} == set(first_half)
+
+    # Accepting the rest must now fully resolve the stage and advance past it.
+    result2 = client.post(
+        f"/api/v1/projects/{project_id}/steering",
+        json={"action_type": "accept", "stage_id": 2, "payload": {"selected_node_ids": second_half}},
+        headers=headers,
+    )
+    assert result2.status_code == 200, result2.text
+    panel_gone = client.get(f"/api/v1/projects/{project_id}/steering/2", headers=headers)
+    assert panel_gone.status_code == 404
 
 
 def test_accepting_last_generative_stage_reaches_final_gate(client: TestClient) -> None:
@@ -334,7 +476,7 @@ def test_chat_send_and_history(client: TestClient) -> None:
     project_id = _create_project(client, headers)
 
     sent = client.post(
-        f"/api/v1/projects/{project_id}/chat", json={"content": "what's the status?"}, headers=headers
+        f"/api/v1/projects/{project_id}/chat", json={"text": "what's the status?"}, headers=headers
     )
     assert sent.status_code == 200, sent.text
 

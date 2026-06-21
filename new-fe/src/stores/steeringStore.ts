@@ -10,6 +10,7 @@ interface SteeringState {
   mode: "summary" | "detail";
   expandedNodeId: string | null;
   submitting: boolean;
+  regenerating: boolean;
   unsubscribe: (() => void) | null;
   init: (projectId: string) => void;
   toggleSelect: (nodeId: string) => void;
@@ -17,6 +18,7 @@ interface SteeringState {
   setMode: (mode: "summary" | "detail") => void;
   setExpanded: (nodeId: string | null) => void;
   submitAction: (actionType: SteeringOptionType, payload: SteeringActionPayload) => Promise<void>;
+  regenerate: () => Promise<void>;
   teardown: () => void;
 }
 
@@ -28,6 +30,7 @@ export const useSteeringStore = create<SteeringState>((set, get) => ({
   mode: "summary",
   expandedNodeId: null,
   submitting: false,
+  regenerating: false,
   unsubscribe: null,
 
   init: (projectId) => {
@@ -96,6 +99,18 @@ export const useSteeringStore = create<SteeringState>((set, get) => ({
       set({ selectedNodeIds: new Set() });
     } finally {
       set({ submitting: false });
+    }
+  },
+
+  regenerate: async () => {
+    const { projectId, panel } = get();
+    if (!projectId || !panel) return;
+    set({ regenerating: true });
+    try {
+      const fresh = await steeringApi.regenerate(projectId, panel.stage_id);
+      set({ panel: fresh, mode: fresh.render_policy.default_mode, selectedNodeIds: new Set() });
+    } finally {
+      set({ regenerating: false });
     }
   },
 

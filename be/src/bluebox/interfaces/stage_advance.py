@@ -16,6 +16,7 @@ from typing import Any
 
 from bluebox.interfaces.api.deps import get_stage_service
 from bluebox.interfaces.panel_builder import build_steering_panel
+from bluebox.modules.core_pipeline.application.steering_service import generate_node_ids
 from bluebox.modules.core_pipeline.domain.state_machine import StateTransitionRecord
 from bluebox.modules.core_pipeline.llm.requests import TechStackSummary
 from bluebox.modules.input_processing.llm.responses import Stage0Seed
@@ -37,13 +38,19 @@ async def run_stage_and_cache(
     candidates = await stage_service.run_stage(
         project_id, stage, context=context, seed=seed, tech_stack=tech_stack
     )
-    app_state.pending_candidates[project_id] = (stage, candidates)
+    # Generated once here and cached alongside `candidates` - every later
+    # read of this stage's panel/accept/modify must reuse this exact list
+    # (see `generate_node_ids`'s docstring), never regenerate it.
+    node_ids = generate_node_ids(candidates)
+    app_state.pending_candidates[project_id] = (stage, candidates, node_ids)
     return candidates
 
 
 def steering_panel_ready_payload(project_id: str, stage: int, candidates: Any) -> dict:
     orchestrator = app_state.sessions.get_or_create(project_id)
-    return build_steering_panel(orchestrator, stage, candidates)
+    cached = app_state.pending_candidates.get(project_id)
+    node_ids = cached[2] if cached is not None else generate_node_ids(candidates)
+    return build_steering_panel(orchestrator, stage, candidates, node_ids)
 
 
 def complete_pipeline_steering(project_id: str) -> list[StateTransitionRecord]:

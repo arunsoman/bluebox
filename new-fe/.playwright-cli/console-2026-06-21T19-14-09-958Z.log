@@ -1,0 +1,16 @@
+[     278ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-TYILIMWK.js?v=32e458b2:21550
+[     402ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=32e458b2:4426
+[   44519ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8000/api/v1/projects/proj-90b50a7f/steering/5/generate:0
+[   44523ms] ApiError: Internal Server Error
+    at request (http://localhost:5173/src/api/httpClient.ts:90:11)
+    at async regenerate (http://localhost:5173/src/stores/steeringStore.ts?t=1782068997190:80:21)
+[  373724ms] [ERROR] WebSocket connection to 'ws://localhost:8000/api/v1/steering/session/proj-90b50a7f' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/src/ws/socketClient.ts:56
+[  375726ms] [ERROR] WebSocket connection to 'ws://localhost:8000/api/v1/steering/session/proj-90b50a7f' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/src/ws/socketClient.ts:56
+[  406313ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-TYILIMWK.js?v=32e458b2:21550
+[  406396ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=32e458b2:4426
+[  430126ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8000/api/v1/projects/proj-90b50a7f/steering/5/generate:0
+[  430131ms] ApiError: Internal Server Error
+    at request (http://localhost:5173/src/api/httpClient.ts:90:11)
+    at async regenerate (http://localhost:5173/src/stores/steeringStore.ts?t=1782068997190:80:21)
+[  534021ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-TYILIMWK.js?v=32e458b2:21550
+[  534102ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=32e458b2:4426

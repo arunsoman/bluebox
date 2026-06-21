@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useIdeLayoutStore, type CenterTab } from "@/stores/ideLayoutStore";
 import styles from "./AppShell.module.css";
 import { PanelChrome } from "./PannelChrome";
 
-type CenterTab = "projects" | "prd" | "steering" | "graph" | "code-gen" | "editor";
 type BottomTab = "terminal" | "test-results" | "audit-trail";
 
 interface AppShellProps {
@@ -18,7 +18,8 @@ interface AppShellProps {
   };
   centerTabBadge?: { steering?: boolean };
   initialCenterTab?: CenterTab;
-  rightPanel: React.ReactNode;
+  /** Deferred — out of scope for this pass (see commented-out RIGHT column below). */
+  rightPanel?: React.ReactNode;
   bottomPanels: {
     terminal: React.ReactNode;
     "test-results": React.ReactNode;
@@ -32,13 +33,22 @@ export function AppShell({
   centerPanels,
   centerTabBadge,
   initialCenterTab = "prd",
-  rightPanel,
   bottomPanels,
 }: AppShellProps) {
   const [leftTab, setLeftTab] = useState<"files" | "chat">("files");
-  const [centerTab, setCenterTab] = useState<CenterTab>(initialCenterTab);
+  const centerTab = useIdeLayoutStore((s) => s.activeCenterTab);
+  const setCenterTab = useIdeLayoutStore((s) => s.setActiveCenterTab);
   const [bottomTab, setBottomTab] = useState<BottomTab>("terminal");
-  const [rightCollapsed, setRightCollapsed] = useState(false);
+
+  // AppShell remounts (via WorkspacePage's `key={projectId}`) on every project switch and on
+  // the dashboard<->project transition - reset the store-backed tab the same way the old local
+  // `useState(initialCenterTab)` did, so switching projects still lands on the right tab while
+  // other components (SteeringPanelCard, useStagePanel, CompletenessGateModal) can still drive
+  // tab changes afterward via the shared store.
+  useEffect(() => {
+    setCenterTab(initialCenterTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const centerLabels: Record<CenterTab, string> = {
     projects: "PROJECTS",
@@ -88,7 +98,7 @@ export function AppShell({
         </div>
 
         {/* RIGHT */}
-        <div className={`${styles.rightCol} ${rightCollapsed ? styles.collapsed : ""}`}>
+        {/* <div className={`${styles.rightCol} ${rightCollapsed ? styles.collapsed : ""}`}>
           <PanelChrome
             title="PREVIEW"
             rightAction={
@@ -100,7 +110,7 @@ export function AppShell({
           >
             {!rightCollapsed && rightPanel}
           </PanelChrome>
-        </div>
+        </div> */}
       </div>
 
       {/* ── BOTTOM ROW: full-width ── */}

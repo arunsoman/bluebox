@@ -1,0 +1,22 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: ◆
+        - generic [ref=e7]: BLUEBOX
+      - generic [ref=e8]:
+        - generic [ref=e10]: ONLINE
+        - generic [ref=e11]: │
+        - button "logout" [ref=e12] [cursor=pointer]
+    - main [ref=e13]
+    - contentinfo [ref=e14]:
+      - generic [ref=e16]: NORMAL
+      - generic [ref=e17]:
+        - generic [ref=e18]: ^P Command
+        - generic [ref=e19]: ^S Save
+        - generic [ref=e20]: ^K Checkpoint
+      - generic [ref=e21]:
+        - generic [ref=e22]: Ln 42, Col 18
+        - generic [ref=e23]: │
+        - generic [ref=e24]: v2.4.0
+  - region "Notifications"

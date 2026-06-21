@@ -12,6 +12,7 @@ from bluebox.modules.input_processing.llm.requests import (
     PRDAnalysisRequest,
     PRDChunkAnalysisRequest,
     RichnessClassificationRequest,
+    SectionContentDraftRequest,
     SeedSynthesisRequest,
 )
 from bluebox.modules.input_processing.llm.responses import (
@@ -20,6 +21,7 @@ from bluebox.modules.input_processing.llm.responses import (
     PRDAnalysisReport,
     PRDChunkAnalysisResult,
     RichnessClassification,
+    SectionContentDraft,
     Stage0Seed,
 )
 from bluebox.shared_kernel.llm.connector import build_agent, run_structured
@@ -115,6 +117,23 @@ seed_synthesis_agent = build_agent(Stage0Seed, _SEED_SYNTHESIS_PROMPT)
 
 async def synthesize_seed(request: SeedSynthesisRequest) -> Stage0Seed:
     return await run_structured(seed_synthesis_agent, request.model_dump_json(indent=2), stage=0)
+
+
+_SECTION_CONTENT_DRAFT_PROMPT = """\
+You draft replacement or additional text for ONE named section of a PRD,
+grounded in the rest of the document so the draft stays consistent with
+everything else the user already wrote (actors, terminology, scope). The
+request's `guidance` tells you exactly what's needed for this section -
+follow it precisely rather than writing generic boilerplate. Output only the
+section's prose/content, not a meta-commentary about what you did."""
+
+section_content_draft_agent = build_agent(SectionContentDraft, _SECTION_CONTENT_DRAFT_PROMPT)
+
+
+async def draft_section_content(request: SectionContentDraftRequest) -> SectionContentDraft:
+    return await run_structured(
+        section_content_draft_agent, request.model_dump_json(indent=2), stage=0
+    )
 
 
 _LEGACY_CONTEXT_SUMMARY_PROMPT = """\

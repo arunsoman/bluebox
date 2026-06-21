@@ -46,9 +46,12 @@ export function StoryDecompositionPanel() {
     expandedNode,
     approvableIds,
     canApproveAll,
+    approveAllLabel,
     consentedIds,
     toggleConsent,
     goToImpactGraph,
+    regenerating,
+    regenerate,
   } = state;
 
   return (
@@ -82,6 +85,7 @@ export function StoryDecompositionPanel() {
         disabled: !canApproveAll,
         loading: submitting,
         title: canApproveAll ? undefined : "Check the consent box on every HIGH/CRITICAL story first",
+        label: approveAllLabel,
         onClick: () => submitAction("accept", { selected_node_ids: approvableIds }),
       }}
       reviewSelected={{
@@ -92,6 +96,7 @@ export function StoryDecompositionPanel() {
       bookmarkCount={bookmarkedOptionIds.size}
       onShowBookmarks={() => setShowBookmarks(true)}
       onImpactGraph={goToImpactGraph}
+      regenerate={{ loading: regenerating, onClick: regenerate }}
       bookmarkDrawer={
         showBookmarks && (
           <BookmarkDrawer

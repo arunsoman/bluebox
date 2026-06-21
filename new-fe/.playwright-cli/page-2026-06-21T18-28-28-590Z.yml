@@ -1,0 +1,50 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: ◆
+        - generic [ref=e7]: BLUEBOX
+      - generic [ref=e8]:
+        - generic [ref=e10]: ONLINE
+        - generic [ref=e11]: │
+        - button "logout" [ref=e12] [cursor=pointer]
+    - main [ref=e13]:
+      - generic [ref=e15]:
+        - generic [ref=e20]: bluebox — login
+        - generic [ref=e21]:
+          - generic [ref=e22]: ____ __ __ _____ / __ )/ /___ ________/_/ / ___/____ __ __ / __ / / __ \/ ___/ _ \/ \__ \/ __ \/ / / / / /_/ / / /_/ / / / __/ ___/ / /_/ / /_/ / /_____/_/\____/_/ \___/____/____/\____/\__, / /_____/ /____/
+          - generic [ref=e23]:
+            - generic [ref=e24]: $
+            - generic [ref=e25]: authenticate --protocol=secure
+          - generic [ref=e26]:
+            - generic [ref=e27]:
+              - generic [ref=e28]: email
+              - generic [ref=e29]:
+                - generic [ref=e30]: ~
+                - textbox "user@domain.net" [ref=e31]
+            - generic [ref=e32]:
+              - generic [ref=e33]: password
+              - generic [ref=e34]:
+                - generic [ref=e35]: "#"
+                - textbox "••••••••" [ref=e36]
+            - generic [ref=e37]:
+              - generic [ref=e38]: persona
+              - generic [ref=e39]:
+                - generic [ref=e40]: ">"
+                - combobox [ref=e41] [cursor=pointer]:
+                  - option "architect" [selected]
+                  - option "citizen_dev"
+                  - option "sec_eng"
+            - button "[ EXECUTE ]" [ref=e42] [cursor=pointer]
+          - generic [ref=e43]: "# biometric and SSO modules disabled in this build"
+    - contentinfo [ref=e44]:
+      - generic [ref=e46]: NORMAL
+      - generic [ref=e47]:
+        - generic [ref=e48]: ^P Command
+        - generic [ref=e49]: ^S Save
+        - generic [ref=e50]: ^K Checkpoint
+      - generic [ref=e51]:
+        - generic [ref=e52]: Ln 42, Col 18
+        - generic [ref=e53]: │
+        - generic [ref=e54]: v2.4.0
+  - region "Notifications"
