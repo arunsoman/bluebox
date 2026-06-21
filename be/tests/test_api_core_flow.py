@@ -7,6 +7,7 @@ Each test creates its own project via the API (random `proj-{uuid}` id) -
 session, so tests must not share project ids.
 """
 
+import time
 from contextlib import ExitStack
 
 import pytest
@@ -16,7 +17,9 @@ from pydantic_ai.models.test import TestModel
 from bluebox.interfaces.api.app import create_app
 from bluebox.modules.advisory.rbac.llm import agents as rbac_agents
 from bluebox.modules.advisory.scaling.llm import agents as scaling_agents
+from bluebox.modules.advisory.tech_stack.domain.tech_stack_profile import TechStackProfile
 from bluebox.modules.advisory.tech_stack.llm import agents as tech_stack_agents
+from bluebox.modules.advisory.tech_stack.llm.responses import TechStackComponent
 from bluebox.modules.chat.llm import agents as chat_agents
 from bluebox.modules.code_generation.llm import agents as codegen_agents
 from bluebox.modules.core_pipeline.llm import agents as stage_agents
@@ -31,6 +34,9 @@ _ALL_AGENTS = [
     input_agents.seed_synthesis_agent,
     stage_agents.actor_generation_agent,
     stage_agents.capability_generation_agent,
+    stage_agents.use_case_generation_agent,
+    stage_agents.user_story_generation_agent,
+    stage_agents.engineering_task_generation_agent,
     governance_agents.node_enrichment_agent,
     scaling_agents.hosting_options_agent,
     tech_stack_agents.tech_stack_options_agent,
@@ -47,7 +53,15 @@ def client():
     with ExitStack() as stack:
         for agent in _ALL_AGENTS:
             stack.enter_context(agent.override(model=TestModel()))
-        yield TestClient(create_app())
+        # Entered as a context manager (not bare `TestClient(create_app())`)
+        # so one `anyio` portal/event loop is reused across every call in a
+        # test - needed for `/generate`'s background `asyncio.create_task`
+        # job to actually run: a bare TestClient spins up and tears down a
+        # fresh event loop per request, silently abandoning any task still
+        # pending when the request returns (see starlette.testclient's
+        # `_portal_factory`).
+        with TestClient(create_app()) as test_client:
+            yield test_client
 
 
 def _auth_headers(client: TestClient) -> dict:
@@ -407,3 +421,75 @@ def test_runtime_status_when_never_started(client: TestClient) -> None:
 
     stop_resp = client.post(f"/api/v1/projects/{project_id}/runtime/stop", headers=headers)
     assert stop_resp.status_code == 409
+
+
+def test_generate_requires_tech_stack_then_runs_to_completion(client: TestClient) -> None:
+    """Regression for new-fe's CompletenessGateModal 404ing on `/generate` -
+    the backend used to only expose the per-task `/codegen/{task_id}` route,
+    not the contract's project-wide `/generate`."""
+
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    no_stack = client.post(f"/api/v1/projects/{project_id}/generate", json={}, headers=headers)
+    assert no_stack.status_code == 400
+
+    onboarding = client.post(
+        f"/api/v1/projects/{project_id}/input",
+        json={"source": "text", "text": "A dental SaaS with patients and dentists."},
+        headers=headers,
+    )
+    assert onboarding.status_code == 200, onboarding.text
+    resume = client.post(f"/api/v1/projects/{project_id}/resume", headers=headers)
+    if resume.json()["current_state"] == "AWAITING_INPUT_SEED":
+        pytest.skip("TestModel produced a non-WELL_FORMED classification this run")
+
+    for stage_id in range(2, 7):
+        panel = client.get(f"/api/v1/projects/{project_id}/steering/{stage_id}", headers=headers)
+        assert panel.status_code == 200, panel.text
+        result = client.post(
+            f"/api/v1/projects/{project_id}/steering",
+            json={"action_type": "accept", "stage_id": stage_id, "payload": {}},
+            headers=headers,
+        )
+        assert result.status_code == 200, result.text
+
+    # TestModel only ever produces a schema-valid but minimal (often
+    # single-component) options matrix (see test_advisory_application.py's
+    # test_tech_stack_service_generate_options_via_llm), which `_split_stack`
+    # rejects as "fewer than 3 components" - so commit a profile directly
+    # rather than round-tripping through `/tech-stack/options` + `/select`.
+    app_state.tech_stack_profiles.save(
+        project_id,
+        TechStackProfile(
+            profile_id="STACK-1",
+            frontend=TechStackComponent(framework="React", language="TypeScript", justification="x"),
+            backend=TechStackComponent(framework="FastAPI", language="python", justification="x"),
+            database=TechStackComponent(framework="PostgreSQL", language="SQL", justification="x"),
+            rationale="test",
+        ),
+    )
+
+    started = client.post(
+        f"/api/v1/projects/{project_id}/generate",
+        json={"include_tests": True, "include_infrastructure": True},
+        headers=headers,
+    )
+    assert started.status_code == 200, started.text
+    started_body = started.json()
+    if started_body["total_files"] == 0:
+        # TestModel's per-run task count/file_paths length is itself
+        # nondeterministic - nothing to generate isn't a failure of this
+        # route, just an unrepresentative run.
+        pytest.skip("TestModel produced zero engineering tasks with file_paths this run")
+
+    for _ in range(150):
+        status_resp = client.get(f"/api/v1/projects/{project_id}/generate/status", headers=headers)
+        assert status_resp.status_code == 200
+        status = status_resp.json()
+        if status["status"] not in ("queued", "running"):
+            break
+        time.sleep(0.2)
+
+    assert status["status"] == "completed", status
+    assert status["files_completed"] == status["files_total"] == started_body["total_files"]

@@ -13,6 +13,7 @@ that sentence.
 """
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -55,3 +56,38 @@ class WorkspaceManifest(BaseModel):
     run_command: str
     test_command: str | None = None
     build_command: str | None = None
+
+
+class CodeGenError(BaseModel):
+    """doc/api_event_contract.md SS8.1 `CodeGenError`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    file_path: str
+    error_type: Literal["syntax", "dependency", "template", "merge_conflict"]
+    message: str
+    recoverable: bool
+
+
+class CodeGenStart(BaseModel):
+    """doc/api_event_contract.md SS8.1 `CodeGenStart` - response to
+    `POST .../generate` and payload of the `CODE_GENERATION_STARTED` WS event."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    generation_id: str
+    total_files: int
+    estimated_duration_seconds: float
+
+
+class CodeGenStatus(BaseModel):
+    """doc/api_event_contract.md SS8.1 `CodeGenStatus`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    generation_id: str
+    status: Literal["queued", "running", "completed", "failed"]
+    files_completed: int
+    files_total: int
+    current_file: str | None = None
+    errors: list[CodeGenError] = Field(default_factory=list)

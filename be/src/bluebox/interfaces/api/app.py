@@ -26,6 +26,10 @@ from bluebox.modules.advisory.scaling.application.scaling_service import Hosting
 from bluebox.modules.advisory.tech_stack.application.tech_stack_service import (
     TechStackOptionNotFoundError,
 )
+from bluebox.modules.code_generation.application.generation_service import (
+    GenerationNotFoundError,
+    NoTechStackProfileError,
+)
 from bluebox.modules.code_generation.application.runtime_sandbox import SandboxNotRunningError
 from bluebox.modules.code_generation.application.workspace_manager import PathEscapeError
 from bluebox.modules.core_pipeline.application.checkpoint_service import CheckpointNotFoundError
@@ -137,12 +141,14 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(NodeNotFoundError)
     @app.exception_handler(CheckpointNotFoundError)
+    @app.exception_handler(GenerationNotFoundError)
     async def not_found_handler(_: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=404, content={"error": str(exc)})
 
     @app.exception_handler(HostingOptionNotFoundError)
     @app.exception_handler(TechStackOptionNotFoundError)
     @app.exception_handler(PathEscapeError)
+    @app.exception_handler(NoTechStackProfileError)
     async def bad_request_handler(_: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=400, content={"error": str(exc)})
 

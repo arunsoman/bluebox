@@ -6,11 +6,13 @@ request is cheap; all actual state lives in `app_state`.
 
 from functools import lru_cache
 
+from bluebox.interfaces.ws.connection_registry import connection_registry
 from bluebox.modules.advisory.rbac.application.rbac_service import RBACService
 from bluebox.modules.advisory.scaling.application.scaling_service import ScalingService
 from bluebox.modules.advisory.tech_stack.application.tech_stack_service import TechStackService
 from bluebox.modules.chat.application.chat_service import ChatService
 from bluebox.modules.code_generation.application.codegen_service import CodeGenService
+from bluebox.modules.code_generation.application.generation_service import ProjectCodeGenService
 from bluebox.modules.code_generation.application.runtime_sandbox import RuntimeSandbox
 from bluebox.modules.code_generation.application.workspace_manager import WorkspaceManager
 from bluebox.modules.core_pipeline.application.checkpoint_service import CheckpointService
@@ -77,6 +79,24 @@ def get_workspace_manager() -> WorkspaceManager:
 
 def get_codegen_service() -> CodeGenService:
     return CodeGenService(get_workspace_manager())
+
+
+@lru_cache
+def _project_codegen_service() -> ProjectCodeGenService:
+    return ProjectCodeGenService(
+        get_codegen_service(), app_state.nodes, app_state.tech_stack_profiles, app_state.workspace,
+        connection_registry.broadcast,
+    )
+
+
+def get_project_codegen_service() -> ProjectCodeGenService:
+    """`@lru_cache`'d (unlike every other `get_*_service` above) because,
+    unlike those stateless per-request wrappers, this one owns live
+    in-progress generation jobs (`ProjectCodeGenService._jobs`) that must
+    survive across requests - status/cancel need the same instance `start`
+    populated."""
+
+    return _project_codegen_service()
 
 
 @lru_cache
