@@ -29,6 +29,7 @@ from bluebox.modules.advisory.tech_stack.application.tech_stack_service import (
 from bluebox.modules.code_generation.application.generation_service import (
     GenerationNotFoundError,
     NoTechStackProfileError,
+    TaskAlreadyRunningError,
 )
 from bluebox.modules.code_generation.application.runtime_sandbox import SandboxNotRunningError
 from bluebox.modules.code_generation.application.workspace_manager import PathEscapeError
@@ -160,6 +161,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(InvalidStateTransitionError)
     @app.exception_handler(PipelinePausedError)
+    @app.exception_handler(TaskAlreadyRunningError)
     async def pipeline_state_handler(_: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=409, content={"error": str(exc)})
 

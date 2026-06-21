@@ -24,6 +24,7 @@ const BOTTOM_TABS: { id: BottomTab; label: string; disabled?: boolean }[] = [
   { id: "terminal", label: "Terminal", disabled: true },
   { id: "test-results", label: "Test Results", disabled: true },
   { id: "audit-trail", label: "Audit Trail" },
+  { id: "code-gen", label: "Code Generation" },
 ];
 
 export function AppShell({

@@ -23,12 +23,20 @@ class FileProvenanceContext(LLMRequest):
 
 
 class CodeFileGenerationRequest(LLMRequest):
-    """doc/api_event_contract.md SS8.1 - Stage 8 CodeGenerator, one file at a time."""
+    """doc/api_event_contract.md SS8.1 - Stage 8 CodeGenerator, one file at a time.
+
+    `existing_files_context` is built by
+    `code_generation/application/project_context.py` from
+    `WorkspaceManager.list_files` - cross-task awareness of files other tasks
+    already wrote, plus an "extend, don't overwrite" notice when `file_path`
+    is being regenerated. It isn't part of the contract's wire shape - it's
+    prompt-only context, "" when the project has no files yet."""
 
     task: EngineeringTaskCandidate
     file_path: str
     tech_stack: TechStackSummary
     provenance: FileProvenanceContext
+    existing_files_context: str = ""
 
 
 class RBACSummary(LLMRequest):

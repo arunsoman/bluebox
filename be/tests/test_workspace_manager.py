@@ -59,3 +59,15 @@ def test_build_manifest_lists_written_files(tmp_path) -> None:
     assert manifest.files == ["main.py"]
     assert manifest.run_command == "python main.py"
     assert repo.get_manifest(_PROJECT) is manifest
+
+
+def test_list_files_passes_through_to_repo(tmp_path) -> None:
+    repo = InMemoryWorkspaceRepository()
+    manager = WorkspaceManager(repo, root=tmp_path)
+
+    generated = manager.write(
+        _PROJECT, "main.py", "x = 1", layer="Backend", task_id="TASK-1",
+        language="python", provenance=_provenance(),
+    )
+
+    assert manager.list_files(_PROJECT) == [generated]

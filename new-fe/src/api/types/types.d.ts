@@ -1711,6 +1711,23 @@ interface CodeGenError {
   recoverable: boolean;
 }
 
+/**
+ * NOT part of doc/api_event_contract.md §8.1 (which only models a
+ * project-aggregate `CodeGenStatus`, no per-task breakdown or pause/cancel
+ * state) — added after the contract was written to back the code-generation
+ * progress panel, same precedent as `llmConfig.ts`/the log viewer endpoints.
+ * Mirrors `be/`'s `modules/code_generation/domain/generation_job.py::TaskGenerationStatus`.
+ */
+interface TaskGenerationStatus {
+  task_id: string;
+  file_paths: string[];
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  files_completed: number;
+  files_total: number;
+  current_file?: string;
+  error?: CodeGenError;
+}
+
 /** WS `CODE_FILE_STREAM` payload (§4.3, §8.1) — not in the original generated set, added alongside GeneratedFile */
 interface CodeFileChunk {
   file_path: string;
@@ -1864,13 +1881,19 @@ interface CommittedNode extends Node {
   committed_at: ISO8601;
 }
 
-/** §8.1 CODE_GENERATION_COMPLETE — modeled on GeneratedFile, aggregated for the whole run */
+/**
+ * §8.1 CODE_GENERATION_COMPLETE. Not fully specified by either spec doc
+ * (doc/prd.md SS4.8/Glossary only says "generated file inventory with
+ * run/test/build commands") — corrected here to match what `be/`'s
+ * `modules/code_generation/domain/workspace.py::WorkspaceManifest` actually
+ * sends (this previously guessed a richer shape before the backend existed).
+ */
 interface WorkspaceManifest {
-  generation_id: string;
-  files: { file_path: string; content_hash: string; layer: string }[];
-  total_files: number;
-  total_size_bytes: number;
-  completed_at: ISO8601;
+  project_id: string;
+  files: string[];
+  run_command: string;
+  test_command?: string;
+  build_command?: string;
 }
 
 /** §10.2 PIPELINE_COMPLETE — modeled on SessionState's terminal fields */

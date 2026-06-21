@@ -8,7 +8,7 @@ import { persist } from "zustand/middleware";
  * if multi-account-per-browser support is needed.
  */
 export type CenterTab = "editor" | "steering" | "graph";
-export type BottomTab = "terminal" | "test-results" | "audit-trail";
+export type BottomTab = "terminal" | "test-results" | "audit-trail" | "code-gen";
 
 interface IdeLayoutState {
   leftSidebarWidth: number;

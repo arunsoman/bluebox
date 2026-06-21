@@ -1,5 +1,6 @@
 """Tests for code_generation/application/generation_service.py - the
-project-wide `/generate` job wrapper around `CodeGenService.generate_task_files`."""
+project-wide `/generate` job wrapper (plus per-task tracking, pause/resume,
+and single-task run/rerun) around `CodeGenService.generate_task_files`."""
 
 import asyncio
 
@@ -13,6 +14,7 @@ from bluebox.modules.code_generation.application.generation_service import (
     GenerationNotFoundError,
     NoTechStackProfileError,
     ProjectCodeGenService,
+    TaskAlreadyRunningError,
 )
 from bluebox.modules.code_generation.application.workspace_manager import WorkspaceManager
 from bluebox.modules.code_generation.llm import agents as codegen_agents
@@ -73,67 +75,129 @@ def _service(tmp_path, nodes=None, profile=_profile()):
         events.append((project_id, event, payload))
 
     service = ProjectCodeGenService(codegen, node_repo, profiles, workspace_repo, broadcast)
-    return service, events
+    return service, events, node_repo
 
 
 async def test_start_with_no_tech_stack_profile_raises(tmp_path) -> None:
-    service, _ = _service(tmp_path, profile=None)
+    service, _, _nodes = _service(tmp_path, profile=None)
     with pytest.raises(NoTechStackProfileError):
         await service.start(_PROJECT, _Request())
 
 
 async def test_status_and_cancel_without_a_job_raise(tmp_path) -> None:
-    service, _ = _service(tmp_path)
+    service, _, _nodes = _service(tmp_path)
     with pytest.raises(GenerationNotFoundError):
         service.status(_PROJECT)
     with pytest.raises(GenerationNotFoundError):
-        service.cancel(_PROJECT)
+        await service.cancel(_PROJECT)
+
+
+async def test_list_tasks_seeds_from_committed_nodes_without_starting(tmp_path) -> None:
+    tasks = [_task("TASK-1", "backend/a.py"), _task("TASK-2", "backend/b.py")]
+    service, _, _nodes = _service(tmp_path, nodes=tasks)
+
+    listed = service.list_tasks(_PROJECT)
+    assert {t.task_id for t in listed} == {"TASK-1", "TASK-2"}
+    assert all(t.status == "queued" for t in listed)
 
 
 async def test_start_runs_every_committed_task_and_completes(tmp_path) -> None:
     tasks = [_task("TASK-1", "backend/a.py"), _task("TASK-2", "backend/b.py", "backend/c.py")]
-    service, events = _service(tmp_path, nodes=tasks)
+    service, events, _nodes = _service(tmp_path, nodes=tasks)
 
     with codegen_agents.code_file_generation_agent.override(model=TestModel()):
         start = await service.start(_PROJECT, _Request())
         assert start.total_files == 3
-        job_task = service._jobs[_PROJECT].task
-        await job_task
+        sweep_task = service._projects[_PROJECT].sweep_task
+        await sweep_task
 
     status = service.status(_PROJECT)
     assert status.status == "completed"
     assert status.files_completed == 3
     assert status.current_file is None
 
+    listed = {t.task_id: t for t in service.list_tasks(_PROJECT)}
+    assert listed["TASK-1"].status == "completed"
+    assert listed["TASK-2"].status == "completed"
+
     event_names = [e for _, e, _ in events]
     assert event_names[0] == "CODE_GENERATION_STARTED"
     assert event_names.count("CODE_FILE_COMPLETE") == 3
+    assert event_names.count("CODE_TASK_STATUS") == 4  # running + completed, per task
     assert event_names[-1] == "CODE_GENERATION_COMPLETE"
 
 
 async def test_start_filters_by_target_nodes(tmp_path) -> None:
     tasks = [_task("TASK-1", "backend/a.py"), _task("TASK-2", "backend/b.py")]
-    service, _ = _service(tmp_path, nodes=tasks)
+    service, _, _nodes = _service(tmp_path, nodes=tasks)
 
     with codegen_agents.code_file_generation_agent.override(model=TestModel()):
         start = await service.start(_PROJECT, _Request(target_nodes=["TASK-2"]))
         assert start.total_files == 1
-        await service._jobs[_PROJECT].task
+        await service._projects[_PROJECT].sweep_task
 
     assert service.status(_PROJECT).files_completed == 1
+    assert service.list_tasks(_PROJECT) and {t.task_id for t in service.list_tasks(_PROJECT)} == {
+        "TASK-1", "TASK-2",
+    }
 
 
 async def test_cancel_stops_remaining_work(tmp_path) -> None:
     tasks = [_task("TASK-1", "backend/a.py"), _task("TASK-2", "backend/b.py")]
-    service, _ = _service(tmp_path, nodes=tasks)
+    service, _, _nodes = _service(tmp_path, nodes=tasks)
 
     with codegen_agents.code_file_generation_agent.override(model=TestModel()):
         await service.start(_PROJECT, _Request())
-        service.cancel(_PROJECT)
-        job_task = service._jobs[_PROJECT].task
+        await service.cancel(_PROJECT)
+        sweep_task = service._projects[_PROJECT].sweep_task
         try:
-            await job_task
+            await sweep_task
         except asyncio.CancelledError:
             pass
 
-    assert service.status(_PROJECT).status == "failed"
+    # Whichever task was mid-flight when cancelled must not be left "running"
+    # forever (the bug a Plan-agent review flagged for this design).
+    assert all(t.status != "running" for t in service.list_tasks(_PROJECT))
+
+
+async def test_pause_blocks_the_sweep_until_resumed(tmp_path) -> None:
+    tasks = [_task("TASK-1", "backend/a.py"), _task("TASK-2", "backend/b.py")]
+    service, _, _nodes = _service(tmp_path, nodes=tasks)
+
+    with codegen_agents.code_file_generation_agent.override(model=TestModel()):
+        await service.start(_PROJECT, _Request())
+        service.pause(_PROJECT)
+        sweep_task = service._projects[_PROJECT].sweep_task
+
+        # Give the event loop a few turns - the sweep must not finish while paused.
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert not sweep_task.done()
+
+        service.resume(_PROJECT)
+        await sweep_task
+
+    assert service.status(_PROJECT).status == "completed"
+
+
+async def test_run_task_executes_a_single_task_synchronously(tmp_path) -> None:
+    tasks = [_task("TASK-1", "backend/a.py")]
+    service, events, _nodes = _service(tmp_path, nodes=tasks)
+
+    with codegen_agents.code_file_generation_agent.override(model=TestModel()):
+        generated = await service.run_task(_PROJECT, "TASK-1")
+
+    assert len(generated) == 1
+    assert service.list_tasks(_PROJECT)[0].status == "completed"
+    assert ("CODE_FILE_COMPLETE" in [e for _, e, _ in events])
+
+
+async def test_run_task_rejects_while_already_running_or_sweeping(tmp_path) -> None:
+    tasks = [_task("TASK-1", "backend/a.py"), _task("TASK-2", "backend/b.py")]
+    service, _, _nodes = _service(tmp_path, nodes=tasks)
+
+    with codegen_agents.code_file_generation_agent.override(model=TestModel()):
+        await service.start(_PROJECT, _Request())  # sweep now in progress
+        with pytest.raises(TaskAlreadyRunningError):
+            await service.run_task(_PROJECT, "TASK-2")
+        await service._projects[_PROJECT].sweep_task

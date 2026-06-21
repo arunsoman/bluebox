@@ -35,6 +35,7 @@ const TYPE_LABELS: Record<string, string> = {
 export function CompletenessGateModal({ onClose }: { onClose: () => void }) {
   const projectId = usePipelineStore((s) => s.projectId);
   const setActiveCenterTab = useIdeLayoutStore((s) => s.setActiveCenterTab);
+  const setActiveBottomTab = useIdeLayoutStore((s) => s.setActiveBottomTab);
   const openEdit = useNodeEditorStore((s) => s.openEdit);
   const isAdmin = useAuthStore((s) => s.user?.permissions.includes("pipeline_admin") ?? false);
   const { pushToast } = useToast();
@@ -126,6 +127,7 @@ export function CompletenessGateModal({ onClose }: { onClose: () => void }) {
     try {
       await codeGenApi.start(projectId, { include_tests: true, include_infrastructure: true });
       pushToast({ severity: "success", title: "Code generation started" });
+      setActiveBottomTab("code-gen");
       onClose();
     } catch (err) {
       pushToast({ severity: "error", title: "Could not start code generation", body: err instanceof ApiError ? err.message : "Unknown error" });

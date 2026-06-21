@@ -105,6 +105,8 @@ export interface ServerEventMap {
   // Code Generation & Deployment — §8.1, §8.2
   CODE_GENERATION_STARTED: CodeGenStart;
   CODE_GENERATION_COMPLETE: WorkspaceManifest;
+  /** NOT in the contract — per-task lifecycle push for the code-generation progress panel. See TaskGenerationStatus. */
+  CODE_TASK_STATUS: TaskGenerationStatus;
   DEPLOYING: { deployment_id: string };
   DEPLOYED: { url: string };
 

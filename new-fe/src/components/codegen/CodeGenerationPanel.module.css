@@ -1,0 +1,139 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.progress {
+  flex: 1;
+  min-width: 0;
+}
+
+.progressLabel {
+  font-size: 12px;
+  color: var(--color-slate);
+}
+
+.progressBar {
+  margin-top: 4px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-silver);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-frontend);
+  transition: width var(--motion-normal) var(--ease-standard);
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.taskList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.taskRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-queued {
+  background: var(--color-silver);
+}
+
+.status-running {
+  background: var(--color-frontend);
+  animation: pulse 1.5s infinite;
+}
+
+.status-completed {
+  background: var(--color-success);
+}
+
+.status-failed {
+  background: var(--color-error);
+}
+
+.status-cancelled {
+  background: var(--color-warning);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.taskInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.taskId {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-ink);
+}
+
+.taskMeta {
+  font-size: 12px;
+  color: var(--color-slate);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskError {
+  font-size: 12px;
+  color: var(--color-error);
+}
+
+.rowAction {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--color-silver);
+  border-radius: 6px;
+  background: var(--color-white);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rowAction:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rowAction:hover:not(:disabled) {
+  background: var(--color-cloud);
+}

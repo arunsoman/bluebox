@@ -11,6 +11,7 @@ import { SteeringPanelView } from "@/components/steering/SteeringPanelView";
 import { FileExplorer } from "@/components/files/FileExplorer";
 import { EditorPanel } from "@/components/editor/EditorPanel";
 import { AuditPanel } from "@/components/audit/AuditPanel";
+import { CodeGenerationPanel } from "@/components/codegen/CodeGenerationPanel";
 import { BlueprintGraph } from "@/components/graph/BlueprintGraph";
 import { NodeEditorModal } from "@/components/nodes/NodeEditorModal";
 import { AddNodeModal } from "@/components/nodes/AddNodeModal";
@@ -112,6 +113,7 @@ export function WorkspacePage() {
           terminal: <PanelPlaceholder name="Terminal" note="Deferred — out of scope for this pass." />,
           "test-results": <PanelPlaceholder name="Test Results" note="Deferred — out of scope for this pass." />,
           "audit-trail": <AuditPanel />,
+          "code-gen": <CodeGenerationPanel />,
         }}
       />
       <NodeEditorModal />

@@ -8,6 +8,7 @@ every result to real disk via `WorkspaceManager`.
 """
 
 from bluebox.modules.advisory.tech_stack.domain.tech_stack_profile import TechStackProfile
+from bluebox.modules.code_generation.application import project_context
 from bluebox.modules.code_generation.application.workspace_manager import WorkspaceManager
 from bluebox.modules.code_generation.domain.workspace import FileProvenance, GeneratedFile
 from bluebox.modules.code_generation.llm import agents as codegen_agents
@@ -79,9 +80,15 @@ class CodeGenService:
 
         generated: list[GeneratedFile] = []
         for file_path in task.file_paths:
+            existing_files = self._workspace.list_files(project_id)
+            existing_files_context = project_context.build_existing_files_context(existing_files, file_path)
             draft = await codegen_agents.generate_code_file(
                 CodeFileGenerationRequest(
-                    task=candidate, file_path=file_path, tech_stack=summary, provenance=provenance_context
+                    task=candidate,
+                    file_path=file_path,
+                    tech_stack=summary,
+                    provenance=provenance_context,
+                    existing_files_context=existing_files_context,
                 )
             )
             generated.append(

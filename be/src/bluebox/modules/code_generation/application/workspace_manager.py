@@ -95,3 +95,6 @@ class WorkspaceManager:
 
     def workspace_dir(self, project_id: str) -> Path:
         return (self._root / project_id).resolve()
+
+    def list_files(self, project_id: str) -> list[GeneratedFile]:
+        return self._workspace_repo.list_files(project_id)

@@ -27,7 +27,11 @@ tech_stack_requirements. Include a ProvenanceHeader comment at the top of
 the file referencing provenance.task_id, provenance.story_id,
 provenance.decision_entry_id, and provenance.checkpoint_id. Output complete,
 runnable code for this file only - no partial snippets, no other files'
-content."""
+content. If existing_files_context is non-empty, stay consistent with the
+classes/functions it lists as already defined elsewhere in the project; if
+it contains an "EXISTING FILE - EXTEND, DO NOT OVERWRITE" section, you are
+regenerating that file - preserve every existing member not explicitly being
+replaced by this task rather than rewriting the file from scratch."""
 
 code_file_generation_agent = build_agent(GeneratedFileDraft, _CODE_FILE_GENERATION_PROMPT)
 
