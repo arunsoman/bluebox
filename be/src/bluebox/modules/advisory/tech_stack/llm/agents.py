@@ -40,7 +40,12 @@ and a rationale that explicitly weighs actor compatibility, fit for the
 stated scale_persona, and learning curve - these three factors must be
 visible in the rationale/pros/cons even though they are not separate
 schema fields. Do not default to the same stack regardless of input;
-options should meaningfully differ in tradeoffs."""
+options should meaningfully differ in tradeoffs. Every stack component must
+set its own `role` field to exactly one of frontend/backend/database/cache/
+auth/hosting, matching what that component actually does in the
+architecture - do not rely on list order to convey this, and include
+exactly one frontend, one backend, and one database component per option
+(cache/auth/hosting are optional)."""
 
 tech_stack_options_agent = build_agent(TechStackOptionsMatrix, _TECH_STACK_OPTIONS_PROMPT)
 

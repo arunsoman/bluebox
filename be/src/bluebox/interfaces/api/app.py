@@ -167,6 +167,7 @@ def create_app() -> FastAPI:
         chat as chat_router,
         checkpoints as checkpoints_router,
         codegen as codegen_router,
+        graph as graph_router,
         ledger as ledger_router,
         llm_config as llm_config_router,
         logs as logs_router,
@@ -190,6 +191,7 @@ def create_app() -> FastAPI:
     app.include_router(rbac_router.router)
     app.include_router(chat_router.router)
     app.include_router(codegen_router.router)
+    app.include_router(graph_router.router)
     app.include_router(runtime_router.router)
     app.include_router(checkpoints_router.router)
     app.include_router(ledger_router.router)

@@ -5,6 +5,7 @@ accept-then-edit is the intended division of labor for this pass, and a
 combined single-call path is a future addition once that's stable.
 """
 
+from bluebox.modules.governance.domain.node_validation import ValidationResult, validate_node
 from bluebox.modules.governance.llm import agents as governance_agents
 from bluebox.modules.governance.llm.requests import NodeEnrichmentRequest
 from bluebox.modules.governance.llm.responses import EnrichResult
@@ -38,6 +39,12 @@ class NodeService:
         node = self.get(project_id, node_id)
         node.restore()
         return node
+
+    def validate(self, project_id: str, node_id: str) -> ValidationResult:
+        """doc/prd.md SS4.4 CRUDNodeService.Validate; doc/api_event_contract.md
+        SS5.1 `POST /nodes/{node_id}/validate`."""
+
+        return validate_node(self.get(project_id, node_id))
 
     async def enrich(
         self,

@@ -112,16 +112,14 @@ def test_full_steering_flow_commits_actor_nodes(client: TestClient) -> None:
     if state == "AWAITING_INPUT_SEED":
         pytest.skip("TestModel produced a non-WELL_FORMED classification this run")
 
-    generated = client.post(
-        f"/api/v1/projects/{project_id}/steering/2/generate", json={"context": "dental SaaS"}, headers=headers
-    )
-    assert generated.status_code == 200, generated.text
-    panel = generated.json()
-    assert panel["stage_id"] == 2
-    assert panel["total_nodes"] >= 1
-
+    # `/input` already auto-advanced into Stage 2 (Actor Discovery) and cached
+    # its panel - that's the real flow now (see routers/onboarding.py), so
+    # there's no separate `/generate` call to make first.
     panel_get = client.get(f"/api/v1/projects/{project_id}/steering/2", headers=headers)
     assert panel_get.status_code == 200
+    panel = panel_get.json()
+    assert panel["stage_id"] == 2
+    assert panel["total_nodes"] >= 1
 
     result = client.post(
         f"/api/v1/projects/{project_id}/steering",
@@ -150,7 +148,7 @@ def test_node_enrich_and_deactivate(client: TestClient) -> None:
     if resume.json()["current_state"] == "AWAITING_INPUT_SEED":
         pytest.skip("TestModel produced a non-WELL_FORMED classification this run")
 
-    client.post(f"/api/v1/projects/{project_id}/steering/2/generate", json={"context": "x"}, headers=headers)
+    # `/input` already auto-advanced into Stage 2 and cached its panel.
     result = client.post(
         f"/api/v1/projects/{project_id}/steering",
         json={"action_type": "accept", "stage_id": 2, "payload": {}},

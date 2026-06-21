@@ -27,10 +27,14 @@ from bluebox.interfaces.api.deps import (
     get_chat_service,
     get_node_service,
     get_onboarding_service,
-    get_stage_service,
     get_steering_service,
 )
-from bluebox.interfaces.panel_builder import build_steering_panel
+from bluebox.interfaces.stage_advance import (
+    FIRST_GENERATIVE_STAGE as _FIRST_GENERATIVE_STAGE,
+    LAST_GENERATIVE_STAGE as _LAST_GENERATIVE_STAGE,
+    run_stage_and_cache,
+    steering_panel_ready_payload,
+)
 from bluebox.interfaces.ws.connection_registry import connection_registry
 from bluebox.modules.governance.application.node_service import NodeNotFoundError
 from bluebox.shared_kernel.infrastructure.in_memory import app_state
@@ -39,9 +43,6 @@ from bluebox.shared_kernel.observability.log_bus import log_bus
 from bluebox.shared_kernel.observability.log_event import LogEvent
 
 router = APIRouter()
-
-_FIRST_GENERATIVE_STAGE = 2
-_LAST_GENERATIVE_STAGE = 6
 
 _STATE_TO_STAGE = {
     "INITIALIZED": 0, "CLASSIFYING": 0, "AWAITING_INPUT_SEED": 0,
@@ -112,19 +113,30 @@ async def _send_session_state(websocket: WebSocket, project_id: str) -> None:
     })
 
 
+async def _resend_pending_panel(websocket: WebSocket, project_id: str) -> None:
+    """Re-pushes `STEERING_PANEL_READY` for whatever stage is already
+    awaiting review, since a (re)connecting client has missed the original
+    push - e.g. a page reload while `pending_steering` is true would
+    otherwise leave the Steering Panel stuck on its empty state forever,
+    because nothing re-triggers stage generation and the client has no other
+    way to learn a draft already exists."""
+    cached = app_state.pending_candidates.get(project_id)
+    if cached is None:
+        return
+    stage, candidates = cached
+    await _send(websocket, project_id, "STEERING_PANEL_READY", steering_panel_ready_payload(project_id, stage, candidates))
+
+
 async def _run_and_advance_stage(websocket: WebSocket, project_id: str, stage: int, context: str = "") -> None:
     """Generates `stage`'s candidates, caches them, and pushes
     `STEERING_PANEL_READY` - the auto-advance step between onboarding/an
     accepted steering action and the next stage boundary."""
 
-    stage_service = get_stage_service()
     history_before = len(app_state.sessions.get_or_create(project_id).history)
-    candidates = await stage_service.run_stage(project_id, stage, context=context)
-    app_state.pending_candidates[project_id] = (stage, candidates)
+    candidates = await run_stage_and_cache(project_id, stage, context=context)
 
     await _send_transitions(websocket, project_id, history_before)
-    orchestrator = app_state.sessions.get_or_create(project_id)
-    await _send(websocket, project_id, "STEERING_PANEL_READY", build_steering_panel(orchestrator, stage, candidates))
+    await _send(websocket, project_id, "STEERING_PANEL_READY", steering_panel_ready_payload(project_id, stage, candidates))
 
 
 async def _handle_user_input(websocket: WebSocket, project_id: str, payload: dict) -> None:
@@ -142,7 +154,13 @@ async def _handle_user_input(websocket: WebSocket, project_id: str, payload: dic
 
     orchestrator = app_state.sessions.get_or_create(project_id)
     if orchestrator.current_state == "STAGE_RUNNING":
-        await _run_and_advance_stage(websocket, project_id, _FIRST_GENERATIVE_STAGE)
+        # The submitted PRD text is the only context Stage 2 (Actor
+        # Discovery) ever gets in the real onboarding flow - without
+        # threading it through, actors would be generated from an empty
+        # string regardless of what the user just submitted.
+        await _run_and_advance_stage(
+            websocket, project_id, _FIRST_GENERATIVE_STAGE, context=payload.get("text", "")
+        )
 
 
 async def _handle_steering_action(websocket: WebSocket, project_id: str, payload: dict) -> None:
@@ -253,6 +271,7 @@ async def steering_session(websocket: WebSocket, project_id: str) -> None:
 
         await _send(websocket, project_id, "AUTH_SESSION_OK", {"user": user})
         await _send_session_state(websocket, project_id)
+        await _resend_pending_panel(websocket, project_id)
 
         try:
             while True:

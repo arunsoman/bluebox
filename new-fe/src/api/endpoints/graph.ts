@@ -5,7 +5,7 @@ import { http } from "@/api/httpClient";
 
 export const graphApi = {
   getGraph: (projectId: string, params?: GraphQuery) =>
-    http.get<GraphData>(`/api/v1/projects/${projectId}/graph`, { params }),
+    http.get<GraphData>(`/api/v1/projects/${projectId}/graph`, params),
 
   simulateWhatIf: (projectId: string, body: WhatIfRequest) =>
     http.post<WhatIfResult>(`/api/v1/projects/${projectId}/graph/what-if`, body),

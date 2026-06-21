@@ -33,14 +33,30 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 
 from bluebox.interfaces.api.deps import get_onboarding_service
+from bluebox.interfaces.stage_advance import (
+    FIRST_GENERATIVE_STAGE,
+    run_stage_and_cache,
+    steering_panel_ready_payload,
+)
 from bluebox.interfaces.ws.connection_registry import connection_registry
 from bluebox.modules.core_pipeline.application.onboarding_service import (
     OnboardingResult,
     OnboardingService,
 )
 from bluebox.modules.input_processing.llm.responses import Stage0Seed
+from bluebox.shared_kernel.infrastructure.in_memory import app_state
 
 router = APIRouter(prefix="/api/v1/projects/{project_id}", tags=["onboarding"])
+
+# NOTE: MINIMALIST/SEED_ONLY input (these two dialogues) lands on
+# STAGE_RUNNING same as a WELL_FORMED PRD, and per AC-RI-04 *should* then run
+# Stage 1 ideation - but `steering_service.py`'s candidate->Node mapping
+# (`_STAGE_NAMES`/`_candidates_to_nodes`) only covers stages 2-6; Stage 1's
+# `IdeationOptionsResult` was never wired into accept/preview at all (raises
+# ValueError). Auto-advancing here the way `/input` does for stage 2 would
+# just move the "stuck panel" bug onto a 500 instead of fixing it, so this
+# path is deliberately left as a follow-up, not patched over with a guess at
+# the missing mapping.
 
 # The 5 `Stage0Seed` fields are the fixed vocabulary both dialogue types
 # collect answers for - keeping these names identical end-to-end (Minimalist
@@ -272,12 +288,27 @@ async def submit_input(
     async def broadcast_event(event: str, payload: dict[str, Any]) -> None:
         await connection_registry.broadcast(project_id, event, payload)
 
-    return await service.submit_input(
+    result = await service.submit_input(
         project_id,
         raw_text=request.text,
         source=request.source,
         broadcast_event=broadcast_event,
     )
+
+    # WELL_FORMED input lands `submit_input` straight on STAGE_RUNNING (AC-RI-04 -
+    # no Stage 1 ideation for a well-formed PRD). Nothing else triggers Stage 2
+    # (Actor Discovery) from here unless we do it - the WS session's equivalent
+    # auto-advance (`steering_session._handle_user_input`) only fires for the
+    # WS `USER_INPUT` event, which this REST-only frontend never sends.
+    orchestrator = app_state.sessions.get_or_create(project_id)
+    if orchestrator.current_state == "STAGE_RUNNING":
+        candidates = await run_stage_and_cache(project_id, FIRST_GENERATIVE_STAGE, context=request.text)
+        await broadcast_event(
+            "STEERING_PANEL_READY",
+            steering_panel_ready_payload(project_id, FIRST_GENERATIVE_STAGE, candidates),
+        )
+
+    return result
 
 
 @router.get("/dialogue/minimalist", response_model=MinimalistDialogue)

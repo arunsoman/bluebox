@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from bluebox.interfaces.api.deps import get_node_service
 from bluebox.modules.governance.application.node_service import NodeNotFoundError, NodeService
+from bluebox.modules.governance.domain.node_validation import ValidationResult
 from bluebox.modules.governance.llm.responses import EnrichResult
 from bluebox.shared_kernel.domain.node import Node
 
@@ -81,3 +82,11 @@ async def enrich_node(
         selected_suggestions=request.selected_suggestions, fields_to_enrich=request.fields_to_enrich,
     )
     return result
+
+
+@router.post("/{node_id}/validate", response_model=ValidationResult)
+def validate_node(
+    project_id: str, node_id: str, service: NodeService = Depends(get_node_service)
+) -> ValidationResult:
+    _get_or_404(service, project_id, node_id)
+    return service.validate(project_id, node_id)

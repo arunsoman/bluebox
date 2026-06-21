@@ -13,6 +13,7 @@ from bluebox.modules.code_generation.domain.workspace import FileProvenance, Gen
 from bluebox.modules.code_generation.llm import agents as codegen_agents
 from bluebox.modules.code_generation.llm.requests import CodeFileGenerationRequest, FileProvenanceContext
 from bluebox.modules.core_pipeline.llm.requests import TechStackSummary
+from bluebox.modules.core_pipeline.llm.responses import AccessGuard as LLMAccessGuard
 from bluebox.modules.core_pipeline.llm.responses import EngineeringTaskCandidate
 from bluebox.shared_kernel.domain.node import EngineeringTaskNode
 
@@ -30,7 +31,7 @@ def _to_candidate(task: EngineeringTaskNode) -> EngineeringTaskCandidate:
         file_paths=task.file_paths,
         tech_stack_requirements=task.tech_stack_requirements,
         database_schema_changes=task.database_schema_changes,
-        access_guards=task.access_guards,
+        access_guards=[LLMAccessGuard(**guard.model_dump()) for guard in task.access_guards],
         parent_story_id=task.parent_story_id,
     )
 

@@ -3,16 +3,16 @@
 Generates a `TechStackOptionsMatrix` from confirmed actors + scale_persona,
 then commits a selected `TechStackOption` as a `TechStackProfile` snapshot.
 
-`TechStackOption.stack` is a flat, unlabeled `list[TechStackComponent]` (see
-`llm/responses.py` docstring - the contract only specifies the committed
-`TechStackProfile`, not the pre-selection options shape). mock_server.py's
-`TECH_STACK_OPTIONS_MATRIX` fixture orders each stack frontend-first,
-backend-second, database-third, with any remaining components being
-cache/auth/hosting in no fixed order - so `_split_stack` below takes the
-first three positionally (frontend/backend/database, the three
-`TechStackProfile` fields with no default) and keyword-matches the rest
-into cache/auth/hosting, since that's the only signal available short of
-asking the LLM to label categories it isn't currently asked to label.
+`TechStackOption.stack` items (`LabeledTechStackComponent`, see
+`llm/responses.py` docstring) each carry an explicit `role` field - the
+contract only specifies the committed `TechStackProfile`'s named slots, not
+the pre-selection options shape, so `_split_stack` below groups by that
+label rather than assuming a fixed list order (frontend-first/backend-
+second/database-third per the mock_server.py fixture's convention is a
+shape a real model has no reason to honor - observed in practice: a
+Spring-only option came back ordered Spring Boot/Spring Data JPA/Spring
+Security, which positional splitting would mistake for
+frontend/backend/database).
 """
 
 import uuid
@@ -21,6 +21,7 @@ from bluebox.modules.advisory.tech_stack.domain.tech_stack_profile import TechSt
 from bluebox.modules.advisory.tech_stack.llm import agents as tech_stack_agents
 from bluebox.modules.advisory.tech_stack.llm.requests import TechStackOptionsRequest
 from bluebox.modules.advisory.tech_stack.llm.responses import (
+    LabeledTechStackComponent,
     TechStackComponent,
     TechStackOption,
     TechStackOptionsMatrix,
@@ -28,30 +29,22 @@ from bluebox.modules.advisory.tech_stack.llm.responses import (
 from bluebox.modules.core_pipeline.llm.requests import ConfirmedNodeRef
 from bluebox.shared_kernel.ports import TechStackProfileRepository
 
-_CACHE_KEYWORDS = ("redis", "memcache", "cache")
-_AUTH_KEYWORDS = ("auth", "oauth", "okta")
-_HOSTING_KEYWORDS = ("vercel", "netlify", "aws", "azure", "gcp", "heroku", "railway", "render")
-
 
 class TechStackOptionNotFoundError(Exception):
     def __init__(self, option_id: str) -> None:
         super().__init__(f"tech stack option {option_id!r} not in the generated matrix")
 
 
-def _split_stack(stack: list[TechStackComponent]) -> dict[str, TechStackComponent | None]:
-    frontend, backend, database, *rest = [*stack, None, None, None]
-    split = {"frontend": frontend, "backend": backend, "database": database,
-             "cache": None, "auth": None, "hosting": None}
-    for component in rest:
-        if component is None:
-            continue
-        name = component.framework.lower()
-        if any(k in name for k in _CACHE_KEYWORDS):
-            split["cache"] = component
-        elif any(k in name for k in _AUTH_KEYWORDS):
-            split["auth"] = component
-        elif any(k in name for k in _HOSTING_KEYWORDS):
-            split["hosting"] = component
+def _split_stack(stack: list[LabeledTechStackComponent]) -> dict[str, TechStackComponent | None]:
+    split: dict[str, TechStackComponent | None] = {
+        "frontend": None, "backend": None, "database": None,
+        "cache": None, "auth": None, "hosting": None,
+    }
+    for component in stack:
+        split[component.role] = TechStackComponent(
+            framework=component.framework, version=component.version,
+            language=component.language, justification=component.justification,
+        )
     return split
 
 

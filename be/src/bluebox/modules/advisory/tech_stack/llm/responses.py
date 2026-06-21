@@ -9,6 +9,8 @@ is taken from the reference implementation in mock_server.py's
 (actor_compatibility/scale_fit/learning_curve folded into `pros`/`cons`/`rationale`).
 """
 
+from typing import Literal
+
 from pydantic import Field
 
 from bluebox.shared_kernel.llm.base import LLMResponse
@@ -31,12 +33,27 @@ class TechStackComponent(LLMResponse):
     justification: str
 
 
+class LabeledTechStackComponent(TechStackComponent):
+    """`TechStackOption.stack` items, pre-selection only - not part of the
+    contract (see `TechStackOption` docstring). `role` is what
+    `TechStackService._split_stack` groups by when building the committed
+    `TechStackProfile`'s named slots; earlier this was inferred positionally
+    (frontend-first/backend-second/database-third, per the mock_server.py
+    fixture's convention), which a real model has no reason to follow - it
+    orders by whatever organizing principle it picked (e.g. "Spring Boot",
+    "Spring Data JPA", "Spring Security" came back in that order, putting
+    the auth layer ahead of the actual frontend/database slots). Asking the
+    model to label its own components directly is the only reliable fix."""
+
+    role: Literal["frontend", "backend", "database", "cache", "auth", "hosting"]
+
+
 class TechStackOption(LLMResponse):
     """mock_server.py `TECH_STACK_OPTIONS_MATRIX.options[]` (reference shape)."""
 
     option_id: str
     option_name: str
-    stack: list[TechStackComponent]
+    stack: list[LabeledTechStackComponent]
     rationale: str
     pros: list[str]
     cons: list[str]

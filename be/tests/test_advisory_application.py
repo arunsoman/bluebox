@@ -21,7 +21,7 @@ from bluebox.modules.advisory.tech_stack.application.tech_stack_service import (
 )
 from bluebox.modules.advisory.tech_stack.llm import agents as tech_stack_agents
 from bluebox.modules.advisory.tech_stack.llm.responses import (
-    TechStackComponent,
+    LabeledTechStackComponent,
     TechStackOption,
     TechStackOptionsMatrix,
 )
@@ -127,11 +127,21 @@ async def test_tech_stack_service_generate_options_via_llm() -> None:
     assert 3 <= len(matrix.options) <= 5
 
 
-def _component(framework: str) -> TechStackComponent:
-    return TechStackComponent(framework=framework, language="TypeScript", justification="because")
+def _component(framework: str, role: str) -> LabeledTechStackComponent:
+    return LabeledTechStackComponent(
+        framework=framework, language="TypeScript", justification="because", role=role
+    )
 
 
-def test_tech_stack_service_commit_splits_stack_by_position_and_keyword() -> None:
+def test_tech_stack_service_commit_splits_stack_by_role_label() -> None:
+    """Regression: splitting used to assume list order (frontend-first/
+    backend-second/database-third) plus keyword-matching framework names for
+    cache/auth/hosting - a real model has no reason to honor either
+    convention (observed: a Spring-only option came back ordered Spring
+    Boot/Spring Data JPA/Spring Security, which positional splitting put in
+    the wrong slots entirely). `_split_stack` now groups by the model's own
+    explicit `role` label instead."""
+
     profiles = InMemoryTechStackProfileRepository()
     service = TechStackService(profiles)
 
@@ -141,12 +151,12 @@ def test_tech_stack_service_commit_splits_stack_by_position_and_keyword() -> Non
                 option_id="opt-1",
                 option_name="Next.js full stack",
                 stack=[
-                    _component("Next.js"),
-                    _component("API Routes"),
-                    _component("Prisma"),
-                    _component("Redis"),
-                    _component("NextAuth"),
-                    _component("Vercel"),
+                    _component("Vercel", "hosting"),
+                    _component("NextAuth", "auth"),
+                    _component("Next.js", "frontend"),
+                    _component("Redis", "cache"),
+                    _component("API Routes", "backend"),
+                    _component("Prisma", "database"),
                 ],
                 rationale="Single framework, fast to ship",
                 pros=["fast"],
@@ -155,18 +165,26 @@ def test_tech_stack_service_commit_splits_stack_by_position_and_keyword() -> Non
             TechStackOption(
                 option_id="opt-2",
                 option_name="Minimal stack",
-                stack=[_component("React"), _component("FastAPI"), _component("PostgreSQL")],
+                stack=[
+                    _component("React", "frontend"),
+                    _component("FastAPI", "backend"),
+                    _component("PostgreSQL", "database"),
+                ],
                 rationale="Decoupled",
                 pros=["flexible"],
                 cons=["more glue code"],
             ),
             TechStackOption(
                 option_id="opt-3",
-                option_name="Django monolith",
-                stack=[_component("Django"), _component("Django"), _component("PostgreSQL")],
-                rationale="Batteries included",
-                pros=["fast to build"],
-                cons=["less flexible"],
+                option_name="Spring-only stack",
+                stack=[
+                    _component("Spring Boot", "backend"),
+                    _component("Spring Data JPA", "database"),
+                    _component("Spring Security", "auth"),
+                ],
+                rationale="Java shop with an existing Spring footprint",
+                pros=["one ecosystem"],
+                cons=["needs a separate frontend choice"],
             ),
         ],
         generation_time_ms=10,
