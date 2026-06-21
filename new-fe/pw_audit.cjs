@@ -29,10 +29,12 @@ async function shot(page, name) {
   page.on('requestfailed', (req) => {
     failedRequests.push(`[${page.url()}] ${req.method()} ${req.url()} -> ${req.failure()?.errorText}`);
   });
-  page.on('response', (res) => {
+  page.on('response', async (res) => {
     const status = res.status();
     if (status >= 400) {
-      badResponses.push(`[${page.url()}] ${res.request().method()} ${res.url()} -> ${status}`);
+      let bodyText = '';
+      try { bodyText = (await res.text()).slice(0, 1000); } catch { /* ignore */ }
+      badResponses.push(`[${page.url()}] ${res.request().method()} ${res.url()} -> ${status} BODY=${bodyText}`);
     }
   });
 
@@ -85,12 +87,27 @@ async function shot(page, name) {
 
   try {
     log('STEP: wait for classification screen (up to 90s)');
-    await page.waitForSelector('text=Review PRD Analysis, text=Start Guided Input, text=Build Your Seed', { timeout: 90000 });
+    await page.waitForSelector(
+      'text=Review PRD Analysis, text=Start Guided Input, text=Build Your Seed, text=Yes, that\'s right',
+      { timeout: 90000 },
+    );
     await shot(page, 'classification-ready');
   } catch (e) {
     log('CLASSIFICATION WAIT FAILED:', e.message);
     await shot(page, 'classification-timeout');
     report();
+  }
+
+  try {
+    const confirmBtn = page.locator('button:has-text("Yes, that\'s right")').first();
+    if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      log('STEP: confirm classification review gate');
+      await confirmBtn.click();
+      await page.waitForTimeout(500);
+      await shot(page, 'after-confirm-classification');
+    }
+  } catch (e) {
+    log('CONFIRM CLASSIFICATION GATE FAILED:', e.message);
   }
 
   try {

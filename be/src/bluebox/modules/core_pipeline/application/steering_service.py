@@ -20,12 +20,16 @@ from bluebox.modules.core_pipeline.llm.responses import (
 )
 from bluebox.shared_kernel.domain.audit import DecisionEntry, DecisionEntryMetadata, ProvenanceChain
 from bluebox.shared_kernel.domain.node import (
+    AcceptanceCriterion,
+    AccessGuard,
     ActorNode,
+    AlternativeFlow,
     CapabilityNode,
     EngineeringTaskNode,
     Node,
     NodeProvenance,
     UseCaseNode,
+    UseCaseStep,
     UserStoryNode,
 )
 from bluebox.shared_kernel.ports import DecisionLedgerRepository, NodeRepository, SessionRepository
@@ -41,6 +45,40 @@ _STAGE_NAMES = {
 
 def _new_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
+
+
+# Below: candidate -> Node conversions for nested fields whose LLM-boundary
+# type (core_pipeline/llm/responses.py) and domain type (shared_kernel/domain/node.py)
+# are separate classes by design (the anti-corruption-layer split both
+# modules' docstrings describe) - structurally identical field sets, but
+# pydantic's `extra="forbid"` model validation rejects an instance of one
+# class where the other is declared, so passing the LLM instances straight
+# through (as this code previously did) raised a `ValidationError` the
+# first time a UseCase/UserStory/EngineeringTask candidate actually
+# populated these fields (`main_flow`, `alternative_flows`,
+# `acceptance_criteria`, `access_guards` - empty lists never tripped it).
+
+
+def _to_domain_step(step: Any) -> UseCaseStep:
+    return UseCaseStep(**step.model_dump())
+
+
+def _to_domain_alternative_flow(flow: Any) -> AlternativeFlow:
+    return AlternativeFlow(
+        flow_id=flow.flow_id, flow_name=flow.flow_name, trigger_condition=flow.trigger_condition,
+        steps=[_to_domain_step(s) for s in flow.steps],
+    )
+
+
+def _to_domain_acceptance_criterion(ac: Any, index: int) -> AcceptanceCriterion:
+    # The LLM-boundary `AcceptanceCriterion` has no `ac_id` (doc/api_event_contract.md
+    # SS5.3 doesn't ask the model to invent ids for nested list items) - the
+    # domain entity requires one, so it's synthesized here, not generated.
+    return AcceptanceCriterion(ac_id=f"AC-{index + 1}", given=ac.given, when=ac.when, then=ac.then, complete=ac.complete)
+
+
+def _to_domain_access_guard(guard: Any) -> AccessGuard:
+    return AccessGuard(**guard.model_dump())
 
 
 def _candidates_to_nodes(stage: int, candidates: Any, checkpoint_id: str) -> list[Node]:
@@ -74,7 +112,8 @@ def _candidates_to_nodes(stage: int, candidates: Any, checkpoint_id: str) -> lis
                 risk_classification="LOW_RISK", status="SYSTEM_GENERATED", created_by="system",
                 provenance=provenance_for(), primary_actor_id=c.primary_actor_id,
                 secondary_actor_ids=list(c.secondary_actor_ids), preconditions=list(c.preconditions),
-                main_flow=list(c.main_flow), alternative_flows=list(c.alternative_flows),
+                main_flow=[_to_domain_step(s) for s in c.main_flow],
+                alternative_flows=[_to_domain_alternative_flow(f) for f in c.alternative_flows],
                 postconditions=list(c.postconditions), success_criteria=list(c.success_criteria),
             )
             for c in candidates.use_cases
@@ -86,7 +125,8 @@ def _candidates_to_nodes(stage: int, candidates: Any, checkpoint_id: str) -> lis
                 risk_classification="LOW_RISK", status="SYSTEM_GENERATED", created_by="system",
                 provenance=provenance_for(), title=c.title, actor_id=c.actor_id,
                 story_points=c.story_points, priority=c.priority,
-                acceptance_criteria=list(c.acceptance_criteria), technical_notes=c.technical_notes,
+                acceptance_criteria=[_to_domain_acceptance_criterion(ac, i) for i, ac in enumerate(c.acceptance_criteria)],
+                technical_notes=c.technical_notes,
                 dependencies=list(c.dependencies),
             )
             for c in candidates.user_stories
@@ -101,7 +141,8 @@ def _candidates_to_nodes(stage: int, candidates: Any, checkpoint_id: str) -> lis
                 preconditions=list(c.preconditions), postconditions=list(c.postconditions),
                 file_paths=list(c.file_paths), tech_stack_requirements=list(c.tech_stack_requirements),
                 database_schema_changes=c.database_schema_changes,
-                access_guards=list(c.access_guards), parent_story_id=c.parent_story_id,
+                access_guards=[_to_domain_access_guard(g) for g in c.access_guards],
+                parent_story_id=c.parent_story_id,
             )
             for c in candidates.tasks
         ]

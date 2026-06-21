@@ -9,6 +9,7 @@ that generation step, same pattern as `scaling.py`/`tech_stack.py`.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
 
 from bluebox.interfaces.api.deps import get_rbac_service
 from bluebox.modules.advisory.rbac.application.rbac_service import RBACService
@@ -17,6 +18,17 @@ from bluebox.shared_kernel.domain.rbac import RBACModel, detect_inheritance_cycl
 from bluebox.shared_kernel.infrastructure.in_memory import app_state
 
 router = APIRouter(prefix="/api/v1/projects/{project_id}/rbac", tags=["rbac"])
+
+
+class RBACCommitRequest(BaseModel):
+    """doc/api_event_contract.md SS6.1 `RBACCommitRequest`. `force` accepted
+    for contract-shape compliance but not acted on - `commit_model` has no
+    warning-override behavior to bypass yet."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rationale: str
+    force: bool = False
 
 
 def _node_refs(project_id: str, stage: int) -> list[ConfirmedNodeRef]:
@@ -68,7 +80,9 @@ def validate_rbac_model(project_id: str) -> dict:
 
 
 @router.post("/commit")
-def commit_rbac_model(project_id: str, rationale: str, service: RBACService = Depends(get_rbac_service)) -> dict:
+def commit_rbac_model(
+    project_id: str, request: RBACCommitRequest, service: RBACService = Depends(get_rbac_service)
+) -> dict:
     model = app_state.pending_rbac_model.get(project_id)
     if model is None:
         raise HTTPException(404, detail="no generated RBAC model to commit - call .../generate first")
@@ -80,5 +94,5 @@ def commit_rbac_model(project_id: str, rationale: str, service: RBACService = De
         "audit_event_id": "",
         "generated_middleware_files": [],
         "privilege_escalations": [e.model_dump(mode="json") for e in escalations],
-        "rationale": rationale,
+        "rationale": request.rationale,
     }

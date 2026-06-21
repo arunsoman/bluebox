@@ -22,11 +22,13 @@ from bluebox.modules.code_generation.llm import agents as codegen_agents
 from bluebox.modules.core_pipeline.llm import agents as stage_agents
 from bluebox.modules.governance.llm import agents as governance_agents
 from bluebox.modules.input_processing.llm import agents as input_agents
+from bluebox.shared_kernel.infrastructure.in_memory import app_state
 
 _ALL_AGENTS = [
     input_agents.richness_classification_agent,
     input_agents.prd_analysis_agent,
     input_agents.compliance_detection_agent,
+    input_agents.seed_synthesis_agent,
     stage_agents.actor_generation_agent,
     stage_agents.capability_generation_agent,
     governance_agents.node_enrichment_agent,
@@ -179,6 +181,89 @@ def test_node_enrich_and_deactivate(client: TestClient) -> None:
     assert restore_node.json()["is_active"] is True
 
 
+def _force_awaiting_input_seed(project_id: str) -> None:
+    """Deterministically reaches the state `submit_seed_dialogue` requires,
+    rather than relying on TestModel's richness classification (normally
+    WELL_FORMED - see other tests' `pytest.skip` for the rare opposite)."""
+
+    orchestrator = app_state.sessions.get_or_create(project_id)
+    orchestrator.transition("CLASSIFYING", reason="test setup")
+    orchestrator.transition("AWAITING_INPUT_SEED", reason="test setup")
+    app_state.sessions.save(project_id, orchestrator)
+
+
+def test_minimalist_dialogue_get_and_submit(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    dialogue = client.get(f"/api/v1/projects/{project_id}/dialogue/minimalist", headers=headers)
+    assert dialogue.status_code == 200, dialogue.text
+    body = dialogue.json()
+    assert len(body["questions"]) == 5
+    assert body["questions"][0]["question_id"] == "problem_statement"
+
+    _force_awaiting_input_seed(project_id)
+    submitted = client.post(
+        f"/api/v1/projects/{project_id}/dialogue/minimalist",
+        json={
+            "dialogue_id": body["dialogue_id"],
+            "answers": [
+                {"question_id": "problem_statement", "answer": "Booking for dental clinics"},
+                {"question_id": "target_users", "answer": "Dentists, Patients"},
+                {"question_id": "core_functionality", "answer": "", "skipped": True},
+            ],
+        },
+        headers=headers,
+    )
+    assert submitted.status_code == 200, submitted.text
+    result = submitted.json()
+    assert result["status"] == "complete"
+    assert result["seed"]["target_users"]  # TestModel-backed synthesize_seed still returns a schema-valid seed
+
+
+def test_seed_builder_dialogue_get_next_and_submit(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    dialogue = client.get(f"/api/v1/projects/{project_id}/dialogue/seed", headers=headers)
+    assert dialogue.status_code == 200, dialogue.text
+    body = dialogue.json()
+    assert len(body["steps"]) == 3
+    dialogue_id = body["dialogue_id"]
+
+    step1 = client.post(
+        f"/api/v1/projects/{project_id}/dialogue/seed",
+        json={
+            "dialogue_id": dialogue_id,
+            "step_id": "problem",
+            "field_values": {"problem_statement": "Booking for dental clinics", "target_users": "Dentists, Patients"},
+            "navigation": "next",
+        },
+        headers=headers,
+    )
+    assert step1.status_code == 200, step1.text
+    assert step1.json()["status"] == "incomplete"
+    assert step1.json()["seed"]["target_users"] == ["Dentists", "Patients"]
+
+    _force_awaiting_input_seed(project_id)
+    final = client.post(
+        f"/api/v1/projects/{project_id}/dialogue/seed",
+        json={
+            "dialogue_id": dialogue_id,
+            "step_id": "success",
+            "field_values": {
+                "problem_statement": "Booking for dental clinics",
+                "target_users": "Dentists, Patients",
+                "success_metrics": "Bookings per week",
+            },
+            "navigation": "submit",
+        },
+        headers=headers,
+    )
+    assert final.status_code == 200, final.text
+    assert final.json()["status"] == "complete"
+
+
 def test_checkpoint_create_get_restore(client: TestClient) -> None:
     headers = _auth_headers(client)
     project_id = _create_project(client, headers)
@@ -271,7 +356,7 @@ def test_rbac_generate_validate_commit(client: TestClient) -> None:
     assert validated.status_code == 200
 
     committed = client.post(
-        f"/api/v1/projects/{project_id}/rbac/commit?rationale=initial", headers=headers
+        f"/api/v1/projects/{project_id}/rbac/commit", json={"rationale": "initial"}, headers=headers
     )
     assert committed.status_code == 200, committed.text
 
