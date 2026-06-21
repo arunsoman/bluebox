@@ -113,3 +113,37 @@ def test_build_live_model_passes_through_unregistered_provider() -> None:
     model = _build_live_model("mistral", "mistral-large-latest")
 
     assert model == "mistral:mistral-large-latest"
+
+
+async def test_run_structured_caches_identical_prompt_for_same_agent() -> None:
+    """Second call with the same agent + exact prompt text must not reach
+    the model at all - this is the cache `run_structured` now applies
+    regardless of which provider/model would have served the call."""
+
+    project_id = "proj-cache-hit"
+    current_project_id.set(project_id)
+    agent = build_agent(_DummyResponse, "say hi")
+
+    with agent.override(model=TestModel()):
+        first = await run_structured(agent, "identical prompt", stage=1)
+        second = await run_structured(agent, "identical prompt", stage=1)
+
+    assert second is first  # same cached object, not just equal
+
+    entries = log_bus.list(project_id)
+    assert len(entries) == 2
+    assert entries[0].detail["cache_hit"] is False
+    assert entries[1].detail["cache_hit"] is True
+    assert entries[1].duration_ms == 0.0
+
+
+async def test_run_structured_does_not_cache_across_different_prompts() -> None:
+    agent = build_agent(_DummyResponse, "say hi")
+    current_project_id.set("proj-cache-miss")
+
+    with agent.override(model=TestModel()):
+        await run_structured(agent, "prompt A")
+        await run_structured(agent, "prompt B")
+
+    entries = log_bus.list("proj-cache-miss")
+    assert [e.detail["cache_hit"] for e in entries] == [False, False]

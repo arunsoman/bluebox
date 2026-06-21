@@ -7,6 +7,7 @@ user-selected option as an `InfrastructureProfile` snapshot.
 import uuid
 
 from bluebox.modules.advisory.scaling.domain.infrastructure_profile import InfrastructureProfile
+from bluebox.modules.advisory.scaling.domain.validation import ScaleValidationResult, validate_scale_inputs
 from bluebox.modules.advisory.scaling.llm import agents as scaling_agents
 from bluebox.modules.advisory.scaling.llm.requests import HostingOptionsRequest, ScaleInputsContext
 from bluebox.modules.advisory.scaling.llm.responses import HostingOptionsMatrix
@@ -21,6 +22,9 @@ class HostingOptionNotFoundError(Exception):
 class ScalingService:
     def __init__(self, profiles: InfrastructureProfileRepository) -> None:
         self._profiles = profiles
+
+    def validate(self, scale_inputs: ScaleInputsContext) -> ScaleValidationResult:
+        return validate_scale_inputs(scale_inputs)
 
     async def generate_options(
         self, scale_inputs: ScaleInputsContext, scale_persona: str

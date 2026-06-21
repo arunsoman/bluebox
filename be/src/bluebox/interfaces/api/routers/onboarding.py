@@ -7,14 +7,18 @@ inline rather than an `input_id` to poll - the async, event-pushed version
 of this flow is the WebSocket steering session (Task 9), not this REST
 route. `/upload` and `/git-connect` are not implemented (no file storage /
 git integration built this pass).
+
+UPDATE: Now emits WebSocket events during processing by broadcasting through
+the connection registry, so the frontend sees real-time progress.
 """
 
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 
 from bluebox.interfaces.api.deps import get_onboarding_service
+from bluebox.interfaces.ws.connection_registry import connection_registry
 from bluebox.modules.core_pipeline.application.onboarding_service import (
     OnboardingResult,
     OnboardingService,
@@ -54,7 +58,19 @@ async def submit_input(
     request: RawUserInput,
     service: OnboardingService = Depends(get_onboarding_service),
 ) -> OnboardingResult:
-    return await service.submit_input(project_id, raw_text=request.text, source=request.source)
+    # Pushes progress/result events to the project's steering WS connection(s)
+    # as this (synchronous) request runs - via the connection registry's
+    # `broadcast`, which also logs each frame to the log viewer the same way
+    # `steering_session.py`'s `_send` does for the WS-driven flow.
+    async def broadcast_event(event: str, payload: dict[str, Any]) -> None:
+        await connection_registry.broadcast(project_id, event, payload)
+
+    return await service.submit_input(
+        project_id,
+        raw_text=request.text,
+        source=request.source,
+        broadcast_event=broadcast_event,
+    )
 
 
 @router.post("/dialogue/seed", response_model=Stage0Seed)

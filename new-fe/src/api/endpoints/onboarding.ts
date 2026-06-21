@@ -36,6 +36,12 @@ export const onboardingApi = {
   submitScale: (projectId: string, body: ScaleInputs) =>
     http.post<ScaleValidationResult>(`/api/v1/projects/${projectId}/scale`, body),
 
-  getHostingOptions: (projectId: string, query: ScaleInputs) =>
-    http.get<HostingOptionsMatrix>(`/api/v1/projects/${projectId}/scale/options`, query),
+  // Contract says `GET /scale/options` with a `ScaleInputs` body - the
+  // backend (be/src/bluebox/interfaces/api/routers/scaling.py) implements
+  // it as `POST` instead (a GET with a meaningful body isn't idiomatic REST
+  // and FastAPI doesn't support it cleanly), with `scale_persona` as a
+  // query param defaulting server-side to "MEDIUM" since this UI doesn't
+  // expose persona selection.
+  getHostingOptions: (projectId: string, body: ScaleInputs) =>
+    http.post<HostingOptionsMatrix>(`/api/v1/projects/${projectId}/scale/options`, body),
 };

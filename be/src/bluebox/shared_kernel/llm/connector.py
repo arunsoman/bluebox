@@ -48,6 +48,7 @@ import json
 import os
 import time
 import uuid
+from collections import OrderedDict
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -180,12 +181,14 @@ def _build_model(provider_id: str, model_name: str) -> Model | str:
         prefix = spec.pydantic_ai_prefix if spec else provider_id
         return f"{prefix}:{model_name}"
 
+    # FIX: Use `or None` so missing env vars become `None` instead of `""`.
+    # An empty string is a valid-but-malformed URL that causes confusing errors.
+    base_url = os.getenv(spec.base_url_env) if spec.base_url_env else None
+    api_key = os.getenv(spec.api_key_env)  # Returns `None` if missing, not `""`
+
     return OpenAIChatModel(
         model_name,
-        provider=OpenAIProvider(
-            base_url=os.getenv(spec.base_url_env or "", ""),
-            api_key=os.getenv(spec.api_key_env, ""),
-        ),
+        provider=OpenAIProvider(base_url=base_url, api_key=api_key),
     )
 
 
@@ -197,6 +200,19 @@ def _build_model(provider_id: str, model_name: str) -> Model | str:
 # concurrent `run_structured` calls sharing the one client never see each
 # other's trace.
 _httpx_trace: ContextVar[list[dict[str, Any]] | None] = ContextVar("_httpx_trace", default=None)
+
+# Memoizes `run_structured` by (call site, exact prompt text) - not by
+# provider/model, so a cache hit happens regardless of which LLM would have
+# served the request, same as if it were the same deterministic function
+# call. `id(agent)` is a stable stand-in for "which call site": every
+# module's `llm/agents.py` builds exactly one `Agent` per call site at
+# import time (module docstring above) and reuses it for the life of the
+# process, so two calls sharing an `Agent` instance really are the same
+# prompt template being asked the same question. Bounded + LRU (oldest
+# evicted first) for the same reason every other in-memory store in this
+# backend is bounded - no database, no persistence across restarts.
+_RESPONSE_CACHE_MAX_ENTRIES = 512
+_response_cache: OrderedDict[tuple[int, str], LLMResponse] = OrderedDict()
 
 
 async def _capture_httpx_request(request: httpx.Request) -> None:
@@ -220,6 +236,9 @@ async def _capture_httpx_response(response: httpx.Response) -> None:
         return
     # Caches the body on the response object (`_content`) - the SDK's own
     # later read gets the cached bytes, not a second network call.
+    # NOTE: This eagerly consumes the body, which is safe for standard
+    # chat-completions but may interfere with streaming if pydantic-ai
+    # switches to streaming under the hood.
     await response.aread()
     trace.append(
         {
@@ -237,6 +256,7 @@ async def _capture_httpx_response(response: httpx.Response) -> None:
 # never force-closed by a `Provider.__aexit__` - only a provider's *own*
 # client (built when the caller doesn't pass one) gets closed - so handing
 # this same instance to every provider below is safe.
+# FIX: Added comment about lifespan shutdown responsibility.
 _shared_http_client = httpx.AsyncClient(
     event_hooks={"request": [_capture_httpx_request], "response": [_capture_httpx_response]}
 )
@@ -256,7 +276,8 @@ def _build_live_model(provider_id: str, model_name: str) -> Model | str:
         return f"{provider_id}:{model_name}"
 
     try:
-        api_key = os.getenv(spec.api_key_env) or None
+        # FIX: Use `os.getenv(var)` to get `None` when missing, not `""`.
+        api_key = os.getenv(spec.api_key_env)
         base_url = os.getenv(spec.base_url_env) if spec.base_url_env else None
 
         if provider_id == "anthropic":
@@ -286,8 +307,11 @@ def _build_live_model(provider_id: str, model_name: str) -> Model | str:
             model_name,
             provider=OpenAIProvider(base_url=base_url, api_key=api_key, http_client=_shared_http_client),
         )
-    except UserError:
-        return f"{spec.pydantic_ai_prefix or provider_id}:{model_name}"
+    # FIX: Catch all construction failures, not just `UserError`. Also fallback
+    # to `_build_model()` so generic providers degrade to the same instance
+    # they would get from the lazy path, not an invalid string.
+    except Exception:
+        return _build_model(provider_id, model_name)
 
 
 class LLMSettings(BaseSettings):
@@ -302,7 +326,14 @@ class LLMSettings(BaseSettings):
 
 def _default_model() -> Model | str:
     provider_id, _, model_name = LLMSettings().model.partition(":")
-    return _build_model(provider_id, model_name) if model_name else provider_id
+    # FIX: Raise a clear configuration error instead of returning a bare
+    # provider ID string that pydantic-ai will reject at runtime.
+    if not model_name:
+        raise ValueError(
+            f"BLUEBOX_LLM_MODEL must be formatted as '<provider_id>:<model_name>', "
+            f"got: {LLMSettings().model!r}"
+        )
+    return _build_model(provider_id, model_name)
 
 
 def build_agent(
@@ -338,11 +369,19 @@ class LLMCallFailed(Exception):
     exception leak upward. Carries a typed `LLMFailure` so callers (the
     not-yet-built state machine / WS layer) always get the same shape
     regardless of which provider failed.
+
+    FIX: Now also carries the original exception so the specific root cause
+    is never lost behind a generic "Internal Server Error".
     """
 
-    def __init__(self, failure: LLMFailure) -> None:
+    def __init__(self, failure: LLMFailure, original: Exception | None = None) -> None:
         self.failure = failure
-        super().__init__(failure.failure_type)
+        self.original = original
+        # Build a human-readable message that includes the specific failure
+        msg = failure.failure_type
+        if original is not None:
+            msg = f"{msg} | {original.__class__.__name__}: {original}"
+        super().__init__(msg)
 
 
 def _active_provider_and_model() -> tuple[str, str]:
@@ -370,6 +409,8 @@ async def _publish_llm_log(
     duration_ms: float,
     output: ResponseT | None,
     failure: LLMFailure | None,
+    exception_info: dict[str, Any] | None = None,  # FIX: new param
+    cache_hit: bool = False,
 ) -> None:
     """Publishes one `llm_call` `LogEvent` for the log viewer - both the
     success and failure paths log, tagged with whichever REST request (if
@@ -377,25 +418,33 @@ async def _publish_llm_log(
     contextvars `interfaces/api/app.py`'s logging middleware sets."""
 
     outcome = "ok" if failure is None else failure.failure_type
+    detail: dict[str, Any] = {
+        "provider": provider_id,
+        "model": model_name,
+        "stage": stage,
+        "prompt_id": prompt_id,
+        "prompt": truncate_body(user_prompt),
+        "output": truncate_body(json.dumps(output.model_dump(mode="json")))
+        if output is not None
+        else None,
+        "failure": failure.model_dump(mode="json") if failure is not None else None,
+        "httpx_trace": httpx_trace,
+        "cache_hit": cache_hit,
+    }
+    # FIX: Include the raw exception info in the log so the specific reason
+    # is visible in the log viewer even if the typed LLMFailure is generic.
+    if exception_info is not None:
+        detail["exception"] = exception_info
+
+    cache_suffix = " [cached]" if cache_hit else ""
     await log_bus.publish(
         LogEvent(
             project_id=current_project_id.get() or GLOBAL_PROJECT_ID,
             trace_id=current_trace_id.get(),
             duration_ms=duration_ms,
             category="llm_call",
-            summary=f"LLM {provider_id}:{model_name} stage={stage} -> {outcome} ({duration_ms:.0f}ms)",
-            detail={
-                "provider": provider_id,
-                "model": model_name,
-                "stage": stage,
-                "prompt_id": prompt_id,
-                "prompt": truncate_body(user_prompt),
-                "output": truncate_body(json.dumps(output.model_dump(mode="json")))
-                if output is not None
-                else None,
-                "failure": failure.model_dump(mode="json") if failure is not None else None,
-                "httpx_trace": httpx_trace,
-            },
+            summary=f"LLM {provider_id}:{model_name} stage={stage} -> {outcome} ({duration_ms:.0f}ms){cache_suffix}",
+            detail=detail,
         )
     )
 
@@ -416,31 +465,90 @@ async def run_structured(
 
     prompt_id = str(uuid.uuid4())
     provider_id, model_name = _active_provider_and_model()
+
+    cache_key = (id(agent), user_prompt)
+    cached = _response_cache.get(cache_key)
+    if cached is not None:
+        _response_cache.move_to_end(cache_key)  # LRU touch
+        await _publish_llm_log(
+            stage=stage,
+            prompt_id=prompt_id,
+            user_prompt=user_prompt,
+            provider_id=provider_id,
+            model_name=model_name,
+            httpx_trace=[],
+            duration_ms=0.0,
+            output=cached,
+            failure=None,
+            cache_hit=True,
+        )
+        return cached
+
     httpx_trace: list[dict[str, Any]] = []
     trace_token = _httpx_trace.set(httpx_trace)
     start = time.perf_counter()
     output: ResponseT | None = None
     failure: LLMFailure | None = None
+    # FIX: Holds the raw exception metadata so the `finally` block can log the
+    # specific reason even for types we did not explicitly anticipate.
+    exception_info: dict[str, Any] | None = None
+
     try:
         result = await agent.run(user_prompt, model=_build_live_model(provider_id, model_name))
         output = result.output
+        _response_cache[cache_key] = output
+        if len(_response_cache) > _RESPONSE_CACHE_MAX_ENTRIES:
+            _response_cache.popitem(last=False)  # evict least-recently-used
         return output
     except UsageLimitExceeded as exc:
-        failure = LLMFailure(failure_type="context_overflow", prompt_id=prompt_id, stage=stage)
-        raise LLMCallFailed(failure) from exc
+        # FIX: Distinguish between context-overflow and rate/quota limits
+        # by inspecting the error message rather than assuming always overflow.
+        msg = str(exc).lower()
+        if "token" in msg or "context" in msg or "length" in msg:
+            failure_type: LLMFailureMode = "context_overflow"
+        elif "rate" in msg or "quota" in msg or "limit" in msg:
+            failure_type = "rate_limit"
+        else:
+            failure_type = "context_overflow"
+        failure = LLMFailure(failure_type=failure_type, prompt_id=prompt_id, stage=stage)
+        exception_info = {"type": exc.__class__.__name__, "message": str(exc)}
+        raise LLMCallFailed(failure, original=exc) from exc
     except ModelHTTPError as exc:
-        mode: LLMFailureMode = (
-            "rate_limit"
-            if exc.status_code == 429
-            else "timeout"
-            if exc.status_code in (408, 504)
-            else "malformed_json"
-        )
+        # `LLMFailureMode` (shared_kernel/llm/failures.py) is the contract's
+        # closed 5-value set (doc/api_event_contract.md SS9.4/SS11) - there
+        # is no "auth_error"/"server_error" mode to map 401/403/5xx onto, so
+        # anything that isn't clearly a rate limit or a timeout falls back
+        # to `malformed_json` (the contract's catch-all for "provider didn't
+        # give us a usable response"). `exception_info` below still carries
+        # the real status code for the log viewer.
+        if exc.status_code == 429:
+            mode: LLMFailureMode = "rate_limit"
+        elif exc.status_code in (408, 504):
+            mode = "timeout"
+        else:
+            mode = "malformed_json"
         failure = LLMFailure(failure_type=mode, prompt_id=prompt_id, stage=stage)
-        raise LLMCallFailed(failure) from exc
+        exception_info = {
+            "type": exc.__class__.__name__,
+            "message": str(exc),
+            "status_code": exc.status_code,
+        }
+        raise LLMCallFailed(failure, original=exc) from exc
     except UnexpectedModelBehavior as exc:
         failure = LLMFailure(failure_type="malformed_json", prompt_id=prompt_id, stage=stage)
-        raise LLMCallFailed(failure) from exc
+        exception_info = {"type": exc.__class__.__name__, "message": str(exc)}
+        raise LLMCallFailed(failure, original=exc) from exc
+    # FIX: Catch-all for any other exception (ValueError, RuntimeError,
+    # httpx errors, KeyboardInterrupt, pydantic-ai bugs, etc.) so the
+    # `finally` block logs truthfully instead of reporting `ok`.
+    except Exception as exc:
+        # Same closed-set constraint as the `ModelHTTPError` branch above -
+        # "unknown" isn't a valid `LLMFailureMode`. `empty_response` is the
+        # closest fit for "the call raised something we didn't anticipate
+        # and got no usable output back".
+        failure = LLMFailure(failure_type="empty_response", prompt_id=prompt_id, stage=stage)
+        exception_info = {"type": exc.__class__.__name__, "message": str(exc)}
+        raise LLMCallFailed(failure, original=exc) from exc
     finally:
         _httpx_trace.reset(trace_token)
         await _publish_llm_log(
@@ -453,4 +561,5 @@ async def run_structured(
             duration_ms=(time.perf_counter() - start) * 1000,
             output=output,
             failure=failure,
+            exception_info=exception_info,  # FIX: pass the specific reason
         )

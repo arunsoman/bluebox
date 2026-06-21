@@ -16,12 +16,14 @@ const CTA_LABEL: Record<RichnessMode, string> = {
 
 interface RichnessClassificationViewProps {
   classification: RichnessClassification;
+  submitting: boolean;
   onProceed: (mode: RichnessMode) => void;
   onOverride: (mode: RichnessMode, rationale: string) => void;
 }
 
 export function RichnessClassificationView({
   classification,
+  submitting,
   onProceed,
   onOverride,
 }: RichnessClassificationViewProps) {
@@ -37,9 +39,12 @@ export function RichnessClassificationView({
           <strong>{badge.label}</strong>. Is that right?
         </p>
         <div className={styles.reviewActions}>
-          <Button onClick={() => setReviewing(false)}>Yes, that's right</Button>
+          <Button disabled={submitting} onClick={() => setReviewing(false)}>
+            Yes, that's right
+          </Button>
           <Button
             variant="secondary"
+            loading={submitting}
             onClick={() => {
               const next =
                 classification.mode === "WELL_FORMED" ? "MINIMALIST" : ("WELL_FORMED" as RichnessMode);
@@ -74,7 +79,11 @@ export function RichnessClassificationView({
         </ul>
       )}
 
-      <Button style={{ width: "100%", marginTop: 16 }} onClick={() => onProceed(classification.mode)}>
+      <Button
+        style={{ width: "100%", marginTop: 16 }}
+        loading={submitting}
+        onClick={() => onProceed(classification.mode)}
+      >
         {CTA_LABEL[classification.mode]}
       </Button>
     </div>

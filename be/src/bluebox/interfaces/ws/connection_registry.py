@@ -12,9 +12,12 @@ event flow (`steering_session._send`). `create_app()` wires
 startup.
 """
 
+from typing import Any
+
 from fastapi import WebSocket
 from fastapi.encoders import jsonable_encoder
 
+from bluebox.shared_kernel.observability.log_bus import log_bus
 from bluebox.shared_kernel.observability.log_event import LogEvent
 
 
@@ -44,6 +47,30 @@ class WSConnectionRegistry:
                 )
             except Exception:  # noqa: BLE001
                 pass
+
+    async def broadcast(self, project_id: str, event: str, payload: Any) -> None:
+        """Push an arbitrary event frame to every open connection for
+        `project_id` - for callers outside `steering_session.py`'s own
+        request/response loop (e.g. the onboarding REST router) that still
+        need to push a server->client frame. Mirrors `steering_session._send`
+        (encode, send, then log to `log_bus` as `ws_sent_by_backend`) so
+        these frames show up in the log viewer the same way every other WS
+        send does, instead of bypassing it."""
+
+        encoded = jsonable_encoder({"event": event, "payload": payload})
+        for websocket in self._connections.get(project_id, ()):
+            try:
+                await websocket.send_json(encoded)
+            except Exception:  # noqa: BLE001 - dead socket shouldn't break the caller
+                continue
+        await log_bus.publish(
+            LogEvent(
+                project_id=project_id,
+                category="ws_sent_by_backend",
+                summary=f"WS server->client {event}",
+                detail=encoded,
+            )
+        )
 
 
 connection_registry = WSConnectionRegistry()

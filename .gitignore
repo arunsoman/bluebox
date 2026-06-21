@@ -5,6 +5,8 @@ node_modules/
 frontend/node_modules/
 be/.venv/
 be/.workspaces/
+be/.bluebox.db
+be/.bluebox.db-*
 be/.env
 be/.pytest_cache/
 .env

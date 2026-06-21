@@ -68,6 +68,14 @@ def resume_project(project_id: str, service: ProjectService = Depends(get_projec
     orchestrator = app_state.sessions.get_or_create(project_id)
     return {
         "project_id": project_id,
+        # No separate session concept in this in-memory backend - the WS
+        # route keys connections by project_id too (steering_session.py's
+        # `_send_session_state` sets this same field to `project_id`). The
+        # frontend's `useEnsurePipelineConnection` reads `session_id` to open
+        # the steering socket - omitting it left `socketClient.connect()`
+        # called with `undefined`, which `SocketClient.open()` silently
+        # no-ops on, so no WS ever connected despite the UI reporting "ready".
+        "session_id": project_id,
         "current_state": orchestrator.current_state,
         "trust_mode": orchestrator.trust_mode,
     }

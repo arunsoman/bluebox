@@ -12,6 +12,7 @@ from bluebox.modules.advisory.scaling.application.scaling_service import (
     HostingOptionNotFoundError,
     ScalingService,
 )
+from bluebox.modules.advisory.scaling.domain.validation import validate_scale_inputs
 from bluebox.modules.advisory.scaling.llm import agents as scaling_agents
 from bluebox.modules.advisory.scaling.llm.requests import ScaleInputsContext
 from bluebox.modules.advisory.tech_stack.application.tech_stack_service import (
@@ -56,6 +57,61 @@ async def test_scaling_service_generate_and_commit() -> None:
 
     with pytest.raises(HostingOptionNotFoundError):
         service.commit_selection(_PROJECT, matrix, "does-not-exist", committed_by="user-1")
+
+
+def test_validate_scale_inputs_clean_input_has_no_conflicts() -> None:
+    result = validate_scale_inputs(
+        ScaleInputsContext(expected_total_users=1000, peak_concurrent_users=100, launch_timeline="1-3 months")
+    )
+    assert result.valid is True
+    assert result.conflicts == []
+    assert result.sanitized_inputs.expected_total_users == 1000
+
+
+def test_validate_scale_inputs_flags_concurrent_exceeds_total() -> None:
+    result = validate_scale_inputs(
+        ScaleInputsContext(expected_total_users=100, peak_concurrent_users=500, launch_timeline="6+ months")
+    )
+    assert result.valid is False
+    assert [c.conflict_type for c in result.conflicts] == ["concurrent_exceeds_total"]
+
+
+def test_validate_scale_inputs_flags_budget_timeline_mismatch() -> None:
+    result = validate_scale_inputs(
+        ScaleInputsContext(
+            expected_total_users=1000,
+            peak_concurrent_users=100,
+            launch_timeline="< 1 month",
+            monthly_budget_usd=10,
+            no_budget_limit=False,
+        )
+    )
+    assert [c.conflict_type for c in result.conflicts] == ["budget_timeline_mismatch"]
+
+    # no_budget_limit=True overrides a low budget figure - no conflict.
+    result = validate_scale_inputs(
+        ScaleInputsContext(
+            expected_total_users=1000,
+            peak_concurrent_users=100,
+            launch_timeline="< 1 month",
+            monthly_budget_usd=10,
+            no_budget_limit=True,
+        )
+    )
+    assert result.conflicts == []
+
+
+def test_validate_scale_inputs_flags_unsupported_region() -> None:
+    result = validate_scale_inputs(
+        ScaleInputsContext(
+            expected_total_users=1000,
+            peak_concurrent_users=100,
+            launch_timeline="6+ months",
+            geographic_regions=["europe", "narnia"],
+        )
+    )
+    assert [c.conflict_type for c in result.conflicts] == ["unsupported_region"]
+    assert "narnia" in result.conflicts[0].description
 
 
 async def test_tech_stack_service_generate_options_via_llm() -> None:

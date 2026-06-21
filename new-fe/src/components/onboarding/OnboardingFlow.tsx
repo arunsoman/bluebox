@@ -122,6 +122,7 @@ export function OnboardingFlow() {
     if (awaitingPrdReport && prdReport) {
       setScreen("prdAnalysis");
       setAwaitingPrdReport(false);
+      setSubmitting(false);
     }
   }, [awaitingPrdReport, prdReport]);
 
@@ -136,6 +137,14 @@ export function OnboardingFlow() {
 
   async function handleSubmitText(text: string, trustMode: TrustMode) {
     setSubmitting(true);
+    // The POST below stays pending until the backend's richness/PRD/compliance
+    // pipeline fully finishes (tens of seconds) - WS events for each stage,
+    // including RICHNESS_MODE_DETECTED (which itself advances `screen` past
+    // "processing"), arrive throughout that wait. Set "processing" now,
+    // synchronously, rather than after the await: setting it post-await would
+    // unconditionally clobber whatever screen RICHNESS_MODE_DETECTED already
+    // navigated to, re-showing "processing" with no event left to advance it.
+    setScreen("processing");
     try {
       const result = await onboardingApi.submitInput(projectId!, {
         source: "text",
@@ -143,8 +152,8 @@ export function OnboardingFlow() {
         trust_mode: trustMode,
       });
       setInputId(result.input_id);
-      setScreen("processing");
     } catch (err) {
+      setScreen("landing");
       pushToast({
         severity: "error",
         title: "Could not submit input",
@@ -202,23 +211,33 @@ export function OnboardingFlow() {
   }
 
   async function handleProceedFromClassification(mode: RichnessMode) {
+    setSubmitting(true);
     try {
       if (mode === "WELL_FORMED") {
         if (prdReport) {
           setScreen("prdAnalysis");
+          setSubmitting(false);
         } else {
+          // Stays "submitting" until PRD_ANALYSIS_READY arrives over WS -
+          // the awaitingPrdReport/prdReport effect above clears it once the
+          // screen actually advances, since there's no REST call here to
+          // await: this branch is purely waiting on a WS event that may
+          // already be in flight from the earlier /input request.
           setAwaitingPrdReport(true);
         }
       } else if (mode === "MINIMALIST") {
         const dialogue = await onboardingApi.getMinimalistDialogue(projectId!);
         setMinimalistDialogue(dialogue);
         setScreen("minimalist");
+        setSubmitting(false);
       } else {
         const dialogue = await onboardingApi.getSeedBuilderDialogue(projectId!);
         setSeedDialogue(dialogue);
         setScreen("seedBuilder");
+        setSubmitting(false);
       }
     } catch (err) {
+      setSubmitting(false);
       pushToast({
         severity: "error",
         title: "Could not load next step",
@@ -229,6 +248,7 @@ export function OnboardingFlow() {
 
   async function handleOverride(mode: RichnessMode, rationale: string) {
     if (!inputId) return;
+    setSubmitting(true);
     try {
       const result = await onboardingApi.overrideClassification(projectId!, {
         input_id: inputId,
@@ -242,6 +262,8 @@ export function OnboardingFlow() {
         title: "Override failed",
         body: err instanceof ApiError ? err.message : "Unknown error",
       });
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -307,6 +329,7 @@ export function OnboardingFlow() {
         <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>
           <RichnessClassificationView
             classification={classification}
+            submitting={submitting}
             onProceed={handleProceedFromClassification}
             onOverride={handleOverride}
           />

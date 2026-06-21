@@ -86,7 +86,9 @@ class LoginResponse(BaseModel):
 _SEED_USER = UserProfile(
     user_id="user-1", email="dev@bluebox.local", name="Dev User", persona="architect",
 )
-_SEED_PASSWORD_HASH = _hash_password("dev-password")
+# Pre-computed bcrypt hash for "dev-password" (bcrypt.gensalt() with cost=12)
+# This is stable across server restarts, unlike generating at import time
+_SEED_PASSWORD_HASH = b"$2b$12$9CNZyjl4hafSBoXN9hNrgO3/G/P7SADZzBXnGU2291Oo.JMKBT3L."
 
 
 class InvalidCredentialsError(Exception):

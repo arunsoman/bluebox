@@ -2,7 +2,19 @@
 
 Same spirit as mock_server.py's `db` dict, but typed and behind the port
 Protocols, so a Postgres/S3 adapter is a clean follow-up swap that never
-touches application code.
+touches application code. Still used directly by application-layer unit
+tests (e.g. test_advisory_application.py constructs `ScalingService` with
+an `InMemoryInfrastructureProfileRepository` for isolated, no-disk tests) -
+kept around for that even though `AppState` below no longer defaults to
+these.
+
+`AppState`/`app_state` now wires the SQLite-backed adapters in
+`sqlite_backend.py` instead, so project state survives a backend restart
+(`uvicorn --reload` included) - the dict-based classes above were losing
+data on every reload, which is what prompted the swap. `AppState` stays in
+this file (rather than moving to `sqlite_backend.py`) purely so every
+existing `from .in_memory import app_state` call site keeps working
+unchanged.
 """
 
 from bluebox.modules.advisory.scaling.domain.infrastructure_profile import InfrastructureProfile
@@ -14,6 +26,22 @@ from bluebox.modules.core_pipeline.domain.state_machine import PipelineOrchestra
 from bluebox.shared_kernel.domain.audit import AuditEvent, Checkpoint, DecisionEntry
 from bluebox.shared_kernel.domain.node import Node
 from bluebox.shared_kernel.domain.rbac import RBACModel
+from bluebox.shared_kernel.infrastructure.sqlite_backend import (
+    DBSettings,
+    SqliteAuditTrailRepository,
+    SqliteCheckpointRepository,
+    SqliteChatRepository,
+    SqliteDecisionLedgerRepository,
+    SqliteInfrastructureProfileRepository,
+    SqliteNodeRepository,
+    SqlitePendingDict,
+    SqliteProjectRepository,
+    SqliteRBACModelRepository,
+    SqliteSessionRepository,
+    SqliteTechStackProfileRepository,
+    SqliteWorkspaceRepository,
+    init_schema,
+)
 
 
 class InMemoryProjectRepository:
@@ -188,32 +216,37 @@ class InMemoryRBACModelRepository:
 
 
 class AppState:
-    """Process-wide bundle of every in-memory repository. FastAPI
-    dependencies (`interfaces/api/deps.py`) pull from one shared instance so
-    every router/service sees the same data."""
+    """Process-wide bundle of every repository. FastAPI dependencies
+    (`interfaces/api/deps.py`) pull from one shared instance so every
+    router/service sees the same data. SQLite-backed (see module
+    docstring) - `BLUEBOX_DB_PATH` controls where."""
 
     def __init__(self) -> None:
-        self.projects = InMemoryProjectRepository()
-        self.nodes = InMemoryNodeRepository()
-        self.sessions = InMemorySessionRepository()
-        self.decisions = InMemoryDecisionLedgerRepository()
-        self.audit = InMemoryAuditTrailRepository()
-        self.chat = InMemoryChatRepository()
-        self.checkpoints = InMemoryCheckpointRepository()
-        self.workspace = InMemoryWorkspaceRepository()
+        db_path = DBSettings().path
+        init_schema(db_path)
+        self.projects = SqliteProjectRepository(db_path)
+        self.nodes = SqliteNodeRepository(db_path)
+        self.sessions = SqliteSessionRepository(db_path)
+        self.decisions = SqliteDecisionLedgerRepository(db_path)
+        self.audit = SqliteAuditTrailRepository(db_path)
+        self.chat = SqliteChatRepository(db_path)
+        self.checkpoints = SqliteCheckpointRepository(db_path)
+        self.workspace = SqliteWorkspaceRepository(db_path)
         # Transient (not a persisted domain entity): the last stage-generation
         # result awaiting a steering decision, keyed by project_id. Not behind
         # a `Protocol` port like the repositories above - this is UI-flow
         # scratch state for the steering REST/WS layer, not business data.
-        self.pending_candidates: dict[str, tuple[int, object]] = {}
+        # Still SQLite-backed (pickled, see sqlite_backend.py) so it survives
+        # a restart same as everything else - that's what this swap is for.
+        self.pending_candidates: SqlitePendingDict = SqlitePendingDict(db_path, "candidates")
         # Same rationale as `pending_candidates`: last-generated, not-yet-
         # committed advisory options awaiting a selection/commit call.
-        self.pending_hosting_options: dict[str, object] = {}
-        self.pending_tech_stack_options: dict[str, object] = {}
-        self.pending_rbac_model: dict[str, object] = {}
-        self.infrastructure_profiles = InMemoryInfrastructureProfileRepository()
-        self.tech_stack_profiles = InMemoryTechStackProfileRepository()
-        self.rbac_models = InMemoryRBACModelRepository()
+        self.pending_hosting_options: SqlitePendingDict = SqlitePendingDict(db_path, "hosting_options")
+        self.pending_tech_stack_options: SqlitePendingDict = SqlitePendingDict(db_path, "tech_stack_options")
+        self.pending_rbac_model: SqlitePendingDict = SqlitePendingDict(db_path, "rbac_model")
+        self.infrastructure_profiles = SqliteInfrastructureProfileRepository(db_path)
+        self.tech_stack_profiles = SqliteTechStackProfileRepository(db_path)
+        self.rbac_models = SqliteRBACModelRepository(db_path)
 
 
 app_state = AppState()

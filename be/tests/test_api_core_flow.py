@@ -160,7 +160,7 @@ def test_node_enrich_and_deactivate(client: TestClient) -> None:
     # from the ledger entry's payload instead.
     ledger = client.get(f"/api/v1/projects/{project_id}/ledger", headers=headers)
     assert ledger.status_code == 200
-    entries = ledger.json()
+    entries = ledger.json()["entries"]
     assert len(entries) >= 1
     node_id = entries[0]["payload"]["node_id"]
 
@@ -211,6 +211,29 @@ def test_chat_send_and_history(client: TestClient) -> None:
     assert len(history.json()["messages"]) == 2
 
 
+def test_scale_submit_validates_inputs(client: TestClient) -> None:
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    valid = client.post(
+        f"/api/v1/projects/{project_id}/scale",
+        json={"expected_total_users": 1000, "peak_concurrent_users": 100, "launch_timeline": "1-3 months"},
+        headers=headers,
+    )
+    assert valid.status_code == 200, valid.text
+    assert valid.json()["valid"] is True
+    assert valid.json()["conflicts"] == []
+
+    conflicting = client.post(
+        f"/api/v1/projects/{project_id}/scale",
+        json={"expected_total_users": 100, "peak_concurrent_users": 500, "launch_timeline": "6+ months"},
+        headers=headers,
+    )
+    assert conflicting.status_code == 200, conflicting.text
+    assert conflicting.json()["valid"] is False
+    assert conflicting.json()["conflicts"][0]["conflict_type"] == "concurrent_exceeds_total"
+
+
 def test_scaling_generate_and_select(client: TestClient) -> None:
     headers = _auth_headers(client)
     project_id = _create_project(client, headers)
@@ -226,9 +249,12 @@ def test_scaling_generate_and_select(client: TestClient) -> None:
     option_id = generated.json()["options"][0]["option_id"]
 
     selected = client.post(
-        f"/api/v1/projects/{project_id}/infrastructure/select?option_id={option_id}", headers=headers
+        f"/api/v1/projects/{project_id}/infrastructure/select",
+        json={"option_id": option_id, "override_budget_warning": True},
+        headers=headers,
     )
     assert selected.status_code == 200, selected.text
+    assert selected.json()["committed_by"] == "user-1"
 
     fetched = client.get(f"/api/v1/projects/{project_id}/infrastructure", headers=headers)
     assert fetched.status_code == 200
