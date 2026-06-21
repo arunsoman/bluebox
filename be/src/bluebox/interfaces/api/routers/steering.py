@@ -30,6 +30,7 @@ from bluebox.interfaces.api.deps import get_stage_service, get_steering_service
 from bluebox.interfaces.panel_builder import build_steering_panel
 from bluebox.interfaces.stage_advance import (
     LAST_GENERATIVE_STAGE,
+    complete_pipeline_steering,
     run_stage_and_cache,
     steering_panel_ready_payload,
 )
@@ -127,6 +128,12 @@ async def submit_action(
             project_id, "STEERING_PANEL_READY",
             steering_panel_ready_payload(project_id, next_stage, next_candidates),
         )
+    else:
+        # Last generative stage accepted - nothing left to auto-advance into,
+        # so push the pipeline on into the completeness gate instead of
+        # leaving it stuck on STAGE_RUNNING (see complete_pipeline_steering).
+        for record in complete_pipeline_steering(project_id):
+            await connection_registry.broadcast(project_id, "STATE_TRANSITION", record)
 
     orchestrator = app_state.sessions.get_or_create(project_id)
     return {

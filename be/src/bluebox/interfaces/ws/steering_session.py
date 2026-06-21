@@ -32,6 +32,7 @@ from bluebox.interfaces.api.deps import (
 from bluebox.interfaces.stage_advance import (
     FIRST_GENERATIVE_STAGE as _FIRST_GENERATIVE_STAGE,
     LAST_GENERATIVE_STAGE as _LAST_GENERATIVE_STAGE,
+    complete_pipeline_steering,
     run_stage_and_cache,
     steering_panel_ready_payload,
 )
@@ -197,6 +198,9 @@ async def _handle_steering_action(websocket: WebSocket, project_id: str, payload
 
     if stage_id < _LAST_GENERATIVE_STAGE:
         await _run_and_advance_stage(websocket, project_id, stage_id + 1)
+    else:
+        for record in complete_pipeline_steering(project_id):
+            await _send(websocket, project_id, "STATE_TRANSITION", record)
 
 
 async def _handle_chat_message(websocket: WebSocket, project_id: str, payload: dict) -> None:

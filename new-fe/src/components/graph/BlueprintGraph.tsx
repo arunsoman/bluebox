@@ -9,9 +9,12 @@ import { useNodeEditorStore, type EditableNodeType } from "@/stores/nodeEditorSt
 import { graphApi } from "@/api/endpoints/graph";
 import { socketClient } from "@/ws/socketClient";
 import { ApiError } from "@/api/httpClient";
+import { BlueprintGraph3D } from "./BlueprintGraph3D";
+import { BlueprintGraph3DForce } from "./BlueprintGraph3DForce";
+import { LAYER_ORDER } from "./graphVisuals";
 import styles from "./BlueprintGraph.module.css";
 
-const LAYER_ORDER: GraphNode["type"][] = ["actor", "capability", "use_case", "user_story", "engineering_task", "file"];
+type ViewMode = "2d" | "3d-grid" | "3d-force";
 
 const FILTER_OPTIONS: { type: GraphNode["type"]; label: string }[] = [
   { type: "actor", label: "Actors" },
@@ -81,6 +84,7 @@ export function BlueprintGraph() {
 
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<ViewMode>("2d");
   const [visibleTypes, setVisibleTypes] = useState<Set<GraphNode["type"]>>(
     new Set(FILTER_OPTIONS.map((f) => f.type)),
   );
@@ -140,9 +144,25 @@ export function BlueprintGraph() {
     <div className={styles.panel}>
       <div className={styles.header}>
         <div className={styles.modeToggle}>
-          <button className={`${styles.modeButton} ${styles.modeButtonActive}`}>2D</button>
-          <button className={`${styles.modeButton} ${styles.modeButtonDisabled}`} disabled title="Not yet available — 3D rendering is out of scope for this pass">
-            3D
+          <button
+            className={`${styles.modeButton} ${mode === "2d" ? styles.modeButtonActive : ""}`}
+            onClick={() => setMode("2d")}
+          >
+            2D
+          </button>
+          <button
+            className={`${styles.modeButton} ${mode === "3d-grid" ? styles.modeButtonActive : ""}`}
+            onClick={() => setMode("3d-grid")}
+            title="3D — layered grid (three.js)"
+          >
+            3D: Grid
+          </button>
+          <button
+            className={`${styles.modeButton} ${mode === "3d-force" ? styles.modeButtonActive : ""}`}
+            onClick={() => setMode("3d-force")}
+            title="3D — force-directed (3d-force-graph)"
+          >
+            3D: Force
           </button>
         </div>
         <button className={`${styles.modeButton} ${styles.modeButtonDisabled}`} disabled title="Not yet available — requires the Impact Report Overlay, out of scope for this pass">
@@ -160,37 +180,55 @@ export function BlueprintGraph() {
 
       <div className={styles.body}>
         <div className={styles.canvasWrap}>
-          <svg width={maxX} height={maxY}>
-            {visibleEdges.map((e) => {
-              const s = positionById.get(e.source);
-              const t = positionById.get(e.target);
-              if (!s || !t) return null;
-              const cls = e.type === "dependency" ? styles.edgeDependency : e.type === "traceability" ? styles.edgeTraceability : styles.edgeProvenance;
-              return (
-                <line
-                  key={e.id}
-                  x1={s.px + NODE_W / 2}
-                  y1={s.py + NODE_H}
-                  x2={t.px + NODE_W / 2}
-                  y2={t.py}
-                  className={cls}
-                />
-              );
-            })}
-            {visibleNodes.map((n) => (
-              <g
-                key={n.id}
-                className={styles.node}
-                transform={`translate(${n.px}, ${n.py})`}
-                onClick={() => { setSelectedId(n.id); setSteerOpen(false); }}
-              >
-                <NodeShape type={n.type} selected={n.id === selectedId} />
-                <text x={NODE_W / 2} y={NODE_H / 2 + 4} className={styles.nodeLabel}>
-                  {n.name.length > 16 ? `${n.name.slice(0, 14)}…` : n.name}
-                </text>
-              </g>
-            ))}
-          </svg>
+          {mode === "2d" && (
+            <svg width={maxX} height={maxY}>
+              {visibleEdges.map((e) => {
+                const s = positionById.get(e.source);
+                const t = positionById.get(e.target);
+                if (!s || !t) return null;
+                const cls = e.type === "dependency" ? styles.edgeDependency : e.type === "traceability" ? styles.edgeTraceability : styles.edgeProvenance;
+                return (
+                  <line
+                    key={e.id}
+                    x1={s.px + NODE_W / 2}
+                    y1={s.py + NODE_H}
+                    x2={t.px + NODE_W / 2}
+                    y2={t.py}
+                    className={cls}
+                  />
+                );
+              })}
+              {visibleNodes.map((n) => (
+                <g
+                  key={n.id}
+                  className={styles.node}
+                  transform={`translate(${n.px}, ${n.py})`}
+                  onClick={() => { setSelectedId(n.id); setSteerOpen(false); }}
+                >
+                  <NodeShape type={n.type} selected={n.id === selectedId} />
+                  <text x={NODE_W / 2} y={NODE_H / 2 + 4} className={styles.nodeLabel}>
+                    {n.name.length > 16 ? `${n.name.slice(0, 14)}…` : n.name}
+                  </text>
+                </g>
+              ))}
+            </svg>
+          )}
+          {mode === "3d-grid" && (
+            <BlueprintGraph3D
+              nodes={visibleNodes}
+              edges={visibleEdges}
+              selectedId={selectedId}
+              onSelect={(id) => { setSelectedId(id); setSteerOpen(false); }}
+            />
+          )}
+          {mode === "3d-force" && (
+            <BlueprintGraph3DForce
+              nodes={visibleNodes}
+              edges={visibleEdges}
+              selectedId={selectedId}
+              onSelect={(id) => { setSelectedId(id); setSteerOpen(false); }}
+            />
+          )}
         </div>
 
         {selected && (

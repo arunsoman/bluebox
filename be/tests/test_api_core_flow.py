@@ -134,6 +134,41 @@ def test_full_steering_flow_commits_actor_nodes(client: TestClient) -> None:
     assert panel_after.status_code == 404
 
 
+def test_accepting_last_generative_stage_reaches_final_gate(client: TestClient) -> None:
+    """Regression for the pipeline getting stuck on STAGE_RUNNING forever
+    after Stage 6 (Task Decomposition) is accepted - SteeringService.accept_all
+    always lands on STAGE_RUNNING, but there's no Stage 7 `run_stage` call to
+    pick it back up (Stage 7, the completeness gate, is rule-based, not
+    generative). Accepting the last generative stage must push the
+    orchestrator on into STAGE_COMPLETED -> FINAL_GATE instead."""
+
+    headers = _auth_headers(client)
+    project_id = _create_project(client, headers)
+
+    onboarding = client.post(
+        f"/api/v1/projects/{project_id}/input",
+        json={"source": "text", "text": "A dental SaaS with patients and dentists."},
+        headers=headers,
+    )
+    assert onboarding.status_code == 200, onboarding.text
+    resume = client.post(f"/api/v1/projects/{project_id}/resume", headers=headers)
+    if resume.json()["current_state"] == "AWAITING_INPUT_SEED":
+        pytest.skip("TestModel produced a non-WELL_FORMED classification this run")
+
+    for stage_id in range(2, 7):
+        panel = client.get(f"/api/v1/projects/{project_id}/steering/{stage_id}", headers=headers)
+        assert panel.status_code == 200, panel.text
+        result = client.post(
+            f"/api/v1/projects/{project_id}/steering",
+            json={"action_type": "accept", "stage_id": stage_id, "payload": {}},
+            headers=headers,
+        )
+        assert result.status_code == 200, result.text
+
+    final_resume = client.post(f"/api/v1/projects/{project_id}/resume", headers=headers)
+    assert final_resume.json()["current_state"] == "FINAL_GATE"
+
+
 def test_node_enrich_and_deactivate(client: TestClient) -> None:
     headers = _auth_headers(client)
     project_id = _create_project(client, headers)

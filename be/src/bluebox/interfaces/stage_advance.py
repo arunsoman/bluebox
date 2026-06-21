@@ -16,6 +16,7 @@ from typing import Any
 
 from bluebox.interfaces.api.deps import get_stage_service
 from bluebox.interfaces.panel_builder import build_steering_panel
+from bluebox.modules.core_pipeline.domain.state_machine import StateTransitionRecord
 from bluebox.modules.core_pipeline.llm.requests import TechStackSummary
 from bluebox.modules.input_processing.llm.responses import Stage0Seed
 from bluebox.shared_kernel.infrastructure.in_memory import app_state
@@ -43,3 +44,27 @@ async def run_stage_and_cache(
 def steering_panel_ready_payload(project_id: str, stage: int, candidates: Any) -> dict:
     orchestrator = app_state.sessions.get_or_create(project_id)
     return build_steering_panel(orchestrator, stage, candidates)
+
+
+def complete_pipeline_steering(project_id: str) -> list[StateTransitionRecord]:
+    """`SteeringService.accept_all` always lands on `STAGE_RUNNING` (it
+    doesn't know whether there's a next stage to run - see its docstring).
+    For every stage before `LAST_GENERATIVE_STAGE` that's fine, the
+    `run_stage_and_cache` call right after picks it back up - but accepting
+    the *last* generative stage left `STAGE_RUNNING` with nothing left to
+    run it into, since Stage 7 (the completeness gate) is rule-based, not a
+    `StageService.run_stage` call. The orchestrator would sit at
+    `STAGE_RUNNING` forever and the Steering Panel would wait for a panel
+    that was never coming. `STAGE_RUNNING -> STAGE_COMPLETED -> FINAL_GATE`
+    are both valid edges (state_machine.py's `TRANSITIONS`) and `FINAL_GATE`
+    is exactly what `new-fe/src/pages/WorkspacePage.tsx` already watches
+    `current_state` for to open `CompletenessGateModal` - the frontend has
+    been ready for this transition, nothing was ever sending it."""
+
+    orchestrator = app_state.sessions.get_or_create(project_id)
+    records = [
+        orchestrator.transition("STAGE_COMPLETED", reason="last generative stage accepted"),
+        orchestrator.transition("FINAL_GATE", reason="entering completeness gate"),
+    ]
+    app_state.sessions.save(project_id, orchestrator)
+    return records
