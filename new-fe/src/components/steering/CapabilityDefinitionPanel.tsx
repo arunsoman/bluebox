@@ -27,7 +27,7 @@ export function CapabilityDefinitionPanel() {
     setShowBookmarks,
     bookmarkedNodes,
     expandedNode,
-    approvableIds,
+    acceptAllSelection,
     canApproveAll,
     approveAllLabel,
     consentedIds,
@@ -53,7 +53,7 @@ export function CapabilityDefinitionPanel() {
         loading: submitting,
         title: canApproveAll ? undefined : "Check the consent box on every HIGH/CRITICAL capability first",
         label: approveAllLabel,
-        onClick: () => submitAction("accept", { selected_node_ids: approvableIds }),
+        onClick: () => submitAction("accept", { selected_node_ids: acceptAllSelection }),
       }}
       reviewSelected={{
         disabled: selectedNodeIds.size === 0,

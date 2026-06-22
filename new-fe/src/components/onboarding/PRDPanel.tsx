@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { usePipelineStore, isOnboardingState } from "@/stores/pipelineStore";
+import { useIdeLayoutStore } from "@/stores/ideLayoutStore";
 import { usePrdStore } from "@/stores/prdStore";
 import { useToast } from "@/components/common/Toast/ToastContext";
 import { ApiError } from "@/api/httpClient";
@@ -32,6 +33,7 @@ function errorMessage(err: unknown): string {
  */
 export function PRDPanel() {
   const { pushToast } = useToast();
+  const setActiveCenterTab = useIdeLayoutStore((s) => s.setActiveCenterTab);
   const projectId = usePipelineStore((s) => s.projectId);
   const currentState = usePipelineStore((s) => s.pipelineState?.current_state);
   const onboarding = isOnboardingState(currentState);
@@ -189,6 +191,14 @@ export function PRDPanel() {
   async function handleSelectHostingOption(optionId: string) {
     try {
       await selectHostingOption(optionId);
+      // Onboarding for a WELL_FORMED PRD already moved the pipeline to
+      // STAGE_RUNNING back when the PRD was analyzed (see
+      // onboarding_service.py submit_input) - this is the last onboarding
+      // screen, not a pipeline transition, so nothing else here will ever
+      // navigate the user off it. Without this, selecting a hosting option
+      // (confirmed 200 OK) leaves the user stranded on the same matrix with
+      // no indication the stage executors are already running.
+      setActiveCenterTab("steering");
     } catch (err) {
       pushToast({ severity: "error", title: "Could not select hosting option", body: errorMessage(err) });
     }

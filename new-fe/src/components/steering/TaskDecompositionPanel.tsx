@@ -90,7 +90,7 @@ export function TaskDecompositionPanel() {
     setShowBookmarks,
     bookmarkedNodes,
     expandedNode,
-    approvableIds,
+    acceptAllSelection,
     canApproveAll,
     approveAllLabel,
     consentedIds,
@@ -132,7 +132,7 @@ export function TaskDecompositionPanel() {
         loading: submitting,
         title: canApproveAll ? undefined : "Check the consent box on every HIGH/CRITICAL task first",
         label: approveAllLabel,
-        onClick: () => submitAction("accept", { selected_node_ids: approvableIds }),
+        onClick: () => submitAction("accept", { selected_node_ids: acceptAllSelection }),
       }}
       reviewSelected={{
         disabled: selectedNodeIds.size === 0,

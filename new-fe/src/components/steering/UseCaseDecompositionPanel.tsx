@@ -38,7 +38,7 @@ export function UseCaseDecompositionPanel() {
     setShowBookmarks,
     bookmarkedNodes,
     expandedNode,
-    approvableIds,
+    acceptAllSelection,
     canApproveAll,
     approveAllLabel,
     consentedIds,
@@ -64,7 +64,7 @@ export function UseCaseDecompositionPanel() {
         loading: submitting,
         title: canApproveAll ? undefined : "Check the consent box on every HIGH/CRITICAL use case first",
         label: approveAllLabel,
-        onClick: () => submitAction("accept", { selected_node_ids: approvableIds }),
+        onClick: () => submitAction("accept", { selected_node_ids: acceptAllSelection }),
       }}
       reviewSelected={{
         disabled: selectedNodeIds.size === 0,

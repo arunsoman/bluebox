@@ -35,7 +35,7 @@ export function GenericStagePanel() {
     setShowBookmarks,
     bookmarkedNodes,
     expandedNode,
-    approvableIds,
+    acceptAllSelection,
     approveAllLabel,
     goToImpactGraph,
     regenerating,
@@ -57,7 +57,7 @@ export function GenericStagePanel() {
         disabled: false,
         loading: submitting,
         label: approveAllLabel,
-        onClick: () => submitAction("accept", { selected_node_ids: approvableIds }),
+        onClick: () => submitAction("accept", { selected_node_ids: acceptAllSelection }),
       }}
       reviewSelected={{
         disabled: selectedNodeIds.size === 0,

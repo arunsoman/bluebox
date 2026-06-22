@@ -66,12 +66,14 @@ Python 3.12, FastAPI + pydantic-ai, `uv`.
 cd be
 uv sync
 cp .env.example .env    # fill at least one provider API key
-uv run uvicorn bluebox.interfaces.api.app:create_app --factory --reload  # :8000
+uv run uvicorn bluebox.interfaces.api.app:create_app --factory --reload --reload-dir src  # :8000
 uv run pytest tests/ -q
 uv run pytest tests/test_foo.py -q
 ```
 
 `be/.env` loaded by `load_dotenv()` at top of `bluebox/__init__.py` (runs before any submodule). No other env-loading mechanism.
+
+`--reload-dir src` is required, not optional: `BLUEBOX_WORKSPACE_ROOT` (`.env`, default `.workspaces`) is a sibling of `src/` under `be/`, and code generation writes the generated project's files there — without scoping reload to `src/`, uvicorn's default watch (the whole `be/` cwd) sees those writes as source changes and restarts the server mid-generation, killing the task (observed live: `Generate Code (Stage 8)` triggered, files started writing under `.workspaces/<project_id>/`, WatchFiles fired, generation never completed).
 
 ### Structure
 

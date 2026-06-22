@@ -194,8 +194,6 @@ async def submit_action(
             "propagation_required": False,
         }
 
-    del app_state.pending_candidates[project_id]
-
     # Mirrors the WS steering session's `_handle_steering_action`: accepting
     # a stage auto-advances into the next one rather than leaving the
     # Steering Panel with nothing queued - this REST route is what the
@@ -203,6 +201,13 @@ async def submit_action(
     # the panel would go blank again after every accept.
     if stage_id < LAST_GENERATIVE_STAGE:
         next_stage = stage_id + 1
+        # Don't drop the just-accepted stage's cache until the next stage's
+        # generation has actually succeeded - `run_stage_and_cache` overwrites
+        # this same `project_id` key on success, but if the LLM call fails,
+        # deleting it upfront leaves the project with no cached panel at all
+        # (every retry then 404s with "no generated panel for stage N",
+        # permanently stranding the user - observed live with a transient
+        # provider failure during manual verification).
         next_candidates = await run_stage_and_cache(project_id, next_stage)
         await connection_registry.broadcast(
             project_id, "STEERING_PANEL_READY",
@@ -212,6 +217,7 @@ async def submit_action(
         # Last generative stage accepted - nothing left to auto-advance into,
         # so push the pipeline on into the completeness gate instead of
         # leaving it stuck on STAGE_RUNNING (see complete_pipeline_steering).
+        del app_state.pending_candidates[project_id]
         for record in complete_pipeline_steering(project_id):
             await connection_registry.broadcast(project_id, "STATE_TRANSITION", record)
 

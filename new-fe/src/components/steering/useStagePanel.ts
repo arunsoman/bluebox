@@ -60,12 +60,16 @@ export function useStagePanel() {
   const approvableNodes = panel ? panel.draft_output.filter((n) => n.status !== "auto_approved") : [];
   const approvableIds = approvableNodes.map((n) => n.node_id);
   const pendingConsent = approvableNodes.filter((n) => n.consent_required && !consentedIds.has(n.node_id));
-  // A stage that generated zero approvable items has nothing blocking it - submitting an
-  // empty accept is a no-op on the backend (steering_service.accept_all) and still advances
-  // the FSM, so the user isn't stuck just because this stage had no candidates to review.
   const nothingToApprove = approvableIds.length === 0;
   const canApproveAll = nothingToApprove || pendingConsent.length === 0;
   const approveAllLabel = nothingToApprove ? "Continue" : "Approve All";
+  // steering_service.accept_all treats `selected_node_ids=None` as "commit
+  // everything" but an explicit `[]` as "0 of N accepted" (is_partial=True),
+  // which never advances the FSM - so when nothing needs manual approval
+  // (everything already auto_approved), "Continue" must send `undefined`,
+  // not `approvableIds` (which is `[]` in exactly this case), or the click
+  // is a silent no-op and the user is stuck on this stage forever.
+  const acceptAllSelection = nothingToApprove ? undefined : approvableIds;
   const bookmarkedNodes = panel ? panel.draft_output.filter((n) => bookmarkedOptionIds.has(n.node_id)) : [];
   const expandedNode = panel?.draft_output.find((n) => n.node_id === expandedNodeId) ?? null;
 
@@ -92,6 +96,7 @@ export function useStagePanel() {
     consentedIds,
     toggleConsent,
     approvableIds,
+    acceptAllSelection,
     canApproveAll,
     nothingToApprove,
     approveAllLabel,
