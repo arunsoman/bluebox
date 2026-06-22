@@ -8,7 +8,6 @@ import { useAiConfigModal } from "@/hooks/useAiConfigModal";
 import { useLogViewerModal } from "@/hooks/useLogViewerModal";
 import { useLogViewerStore } from "@/stores/logViewerStore";
 import { router } from "@/router";
-import { AppLayout } from "./components/layout/AppLayout";
 
 export default function App() {
   const { isOpen, close } = useAiConfigModal();
@@ -23,9 +22,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
-          <AppLayout>
-            <RouterProvider router={router} />
-          </AppLayout>
+        <RouterProvider router={router} />
         <AiConfigModal isOpen={isOpen} onClose={close} />
         <LogViewerModal isOpen={logViewer.isOpen} onClose={logViewer.close} />
       </ToastProvider>

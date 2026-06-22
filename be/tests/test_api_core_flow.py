@@ -19,7 +19,12 @@ from bluebox.modules.advisory.rbac.llm import agents as rbac_agents
 from bluebox.modules.advisory.scaling.llm import agents as scaling_agents
 from bluebox.modules.advisory.tech_stack.domain.tech_stack_profile import TechStackProfile
 from bluebox.modules.advisory.tech_stack.llm import agents as tech_stack_agents
-from bluebox.modules.advisory.tech_stack.llm.responses import TechStackComponent
+from bluebox.modules.advisory.tech_stack.llm.responses import (
+    LabeledTechStackComponent,
+    TechStackComponent,
+    TechStackOption,
+    TechStackOptionsMatrix,
+)
 from bluebox.modules.chat.llm import agents as chat_agents
 from bluebox.modules.code_generation.llm import agents as codegen_agents
 from bluebox.modules.core_pipeline.llm import agents as stage_agents
@@ -369,6 +374,37 @@ def test_node_enrich_and_deactivate(client: TestClient) -> None:
     assert restore_node.status_code == 200
     assert restore_node.json()["is_active"] is True
 
+    # Regression: PUT /nodes/{node_id} is in doc/api_event_contract.md SS5.1 but
+    # was never registered on the router - every "Save Changes"/"Defer with
+    # rationale" call 405'd. Node Editor's generic-edit shape:
+    update_node = client.put(
+        f"/api/v1/projects/{project_id}/nodes/{node_id}",
+        json={"data": {"description": "Edited via Node Editor"}, "source": "user_edit"},
+        headers=headers,
+    )
+    assert update_node.status_code == 200, update_node.text
+    assert update_node.json()["description"] == "Edited via Node Editor"
+    assert update_node.json()["version"] == 2
+
+    # Completeness Gate / Bulk Fix Wizard's "Defer with rationale" shape -
+    # deferring without a rationale must 400 (Node.defer()'s invariant),
+    # checked before the node is actually deferred below.
+    defer_without_rationale = client.put(
+        f"/api/v1/projects/{project_id}/nodes/{node_id}",
+        json={"data": {"status": "DEFERRED"}, "source": "user_edit"},
+        headers=headers,
+    )
+    assert defer_without_rationale.status_code == 400
+
+    defer_node = client.put(
+        f"/api/v1/projects/{project_id}/nodes/{node_id}",
+        json={"data": {"status": "DEFERRED"}, "source": "user_edit", "change_rationale": "Out of scope for MVP"},
+        headers=headers,
+    )
+    assert defer_node.status_code == 200, defer_node.text
+    assert defer_node.json()["status"] == "DEFERRED"
+    assert defer_node.json()["deferred_rationale"] == "Out of scope for MVP"
+
 
 def _force_awaiting_input_seed(project_id: str) -> None:
     """Deterministically reaches the state `submit_seed_dialogue` requires,
@@ -565,16 +601,48 @@ def test_runtime_status_when_never_started(client: TestClient) -> None:
     assert stop_resp.status_code == 409
 
 
-def test_generate_requires_tech_stack_then_runs_to_completion(client: TestClient) -> None:
+def test_generate_requires_tech_stack_then_runs_to_completion(client: TestClient, monkeypatch) -> None:
     """Regression for new-fe's CompletenessGateModal 404ing on `/generate` -
     the backend used to only expose the per-task `/codegen/{task_id}` route,
-    not the contract's project-wide `/generate`."""
+    not the contract's project-wide `/generate`. Also covers
+    `ProjectCodeGenService._ensure_tech_stack_profile`: a committed
+    `TechStackProfile` is no longer required upfront - `/generate` auto-picks
+    one instead of 400ing. TestModel's own `tech_stack_options_agent` output
+    is schema-valid but too minimal to survive `_split_stack` (see
+    `test_advisory_application.py`'s `test_tech_stack_service_generate_options_via_llm`),
+    so this monkeypatches a realistic matrix for that one call."""
 
     headers = _auth_headers(client)
     project_id = _create_project(client, headers)
 
+    def _option(option_id: str) -> TechStackOption:
+        return TechStackOption(
+            option_id=option_id, option_name=option_id,
+            stack=[
+                LabeledTechStackComponent(
+                    framework="React", language="TypeScript", justification="x", role="frontend"
+                ),
+                LabeledTechStackComponent(
+                    framework="FastAPI", language="python", justification="x", role="backend"
+                ),
+                LabeledTechStackComponent(
+                    framework="PostgreSQL", language="SQL", justification="x", role="database"
+                ),
+            ],
+            rationale="x", pros=["x"], cons=["x"],
+        )
+
+    async def fake_generate_tech_stack_options(request: object) -> TechStackOptionsMatrix:
+        return TechStackOptionsMatrix(
+            options=[_option("auto-a"), _option("auto-b"), _option("auto-c")],
+            generation_time_ms=0,
+        )
+
+    monkeypatch.setattr(tech_stack_agents, "generate_tech_stack_options", fake_generate_tech_stack_options)
+
     no_stack = client.post(f"/api/v1/projects/{project_id}/generate", json={}, headers=headers)
-    assert no_stack.status_code == 400
+    assert no_stack.status_code == 200, no_stack.text
+    assert app_state.tech_stack_profiles.get(project_id) is not None
 
     onboarding = client.post(
         f"/api/v1/projects/{project_id}/input",

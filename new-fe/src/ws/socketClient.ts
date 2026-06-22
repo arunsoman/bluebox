@@ -54,6 +54,22 @@ export class SocketClient {
   private token: string | null = null;
 
   connect(sessionId: string, token: string): void {
+    // Navigating between projects calls connect() again before the prior
+    // session's socket was ever disconnect()'d — close it out first so its
+    // onclose/reconnect logic doesn't fire against (and clobber) the new one.
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.socket) {
+      this.socket.onopen = null;
+      this.socket.onmessage = null;
+      this.socket.onclose = null;
+      this.socket.onerror = null;
+      this.socket.close();
+      this.socket = null;
+    }
+    this.reconnectAttempts = 0;
     this.sessionId = sessionId;
     this.token = token;
     this.manuallyClosed = false;

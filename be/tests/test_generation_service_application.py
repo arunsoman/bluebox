@@ -7,12 +7,19 @@ import asyncio
 import pytest
 from pydantic_ai.models.test import TestModel
 
+from bluebox.modules.advisory.tech_stack.application.tech_stack_service import TechStackService
 from bluebox.modules.advisory.tech_stack.domain.tech_stack_profile import TechStackProfile
-from bluebox.modules.advisory.tech_stack.llm.responses import TechStackComponent
+from bluebox.modules.advisory.tech_stack.llm import agents as tech_stack_agents
+from bluebox.modules.advisory.tech_stack.llm.requests import TechStackOptionsRequest
+from bluebox.modules.advisory.tech_stack.llm.responses import (
+    LabeledTechStackComponent,
+    TechStackComponent,
+    TechStackOption,
+    TechStackOptionsMatrix,
+)
 from bluebox.modules.code_generation.application.codegen_service import CodeGenService
 from bluebox.modules.code_generation.application.generation_service import (
     GenerationNotFoundError,
-    NoTechStackProfileError,
     ProjectCodeGenService,
     TaskAlreadyRunningError,
 )
@@ -76,14 +83,41 @@ def _service(tmp_path, nodes=None, profile=_profile()):
     async def broadcast(project_id: str, event: str, payload: object) -> None:
         events.append((project_id, event, payload))
 
-    service = ProjectCodeGenService(codegen, node_repo, profiles, workspace_repo, broadcast)
+    tech_stack_service = TechStackService(profiles)
+    pending_tech_stack_options: dict = {}
+    service = ProjectCodeGenService(
+        codegen, node_repo, profiles, workspace_repo, broadcast, tech_stack_service, pending_tech_stack_options,
+    )
     return service, events, node_repo
 
 
-async def test_start_with_no_tech_stack_profile_raises(tmp_path) -> None:
-    service, _, _nodes = _service(tmp_path, profile=None)
-    with pytest.raises(NoTechStackProfileError):
-        await service.start(_PROJECT, _Request())
+def _full_option(option_id: str) -> TechStackOption:
+    return TechStackOption(
+        option_id=option_id, option_name=option_id,
+        stack=[
+            LabeledTechStackComponent(framework="React", language="TypeScript", justification="x", role="frontend"),
+            LabeledTechStackComponent(framework="FastAPI", language="python", justification="x", role="backend"),
+            LabeledTechStackComponent(framework="PostgreSQL", language="SQL", justification="x", role="database"),
+        ],
+        rationale="x", pros=["x"], cons=["x"],
+    )
+
+
+async def test_start_with_no_tech_stack_profile_auto_selects_one(tmp_path, monkeypatch) -> None:
+    service, events, _nodes = _service(tmp_path, profile=None)
+
+    async def fake_generate_tech_stack_options(request: TechStackOptionsRequest) -> TechStackOptionsMatrix:
+        return TechStackOptionsMatrix(
+            options=[_full_option("opt-a"), _full_option("opt-b"), _full_option("opt-c")],
+            generation_time_ms=0,
+        )
+
+    monkeypatch.setattr(tech_stack_agents, "generate_tech_stack_options", fake_generate_tech_stack_options)
+
+    await service.start(_PROJECT, _Request())
+
+    assert service._tech_stack_profiles.get(_PROJECT) is not None
+    assert "TECH_STACK_AUTO_SELECTED" in [e for _, e, _ in events]
 
 
 async def test_status_and_cancel_without_a_job_raise(tmp_path) -> None:

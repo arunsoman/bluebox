@@ -90,7 +90,7 @@ def get_codegen_service() -> CodeGenService:
 def _project_codegen_service() -> ProjectCodeGenService:
     return ProjectCodeGenService(
         get_codegen_service(), app_state.nodes, app_state.tech_stack_profiles, app_state.workspace,
-        connection_registry.broadcast,
+        connection_registry.broadcast, get_tech_stack_service(), app_state.pending_tech_stack_options,
     )
 
 

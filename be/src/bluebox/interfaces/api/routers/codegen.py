@@ -6,9 +6,12 @@ contract's project-wide Stage 8 trigger - `new-fe`'s
 `/generate/pause`, `/generate/resume`, and `POST .../codegen/{task_id}`
 (single-task run/rerun) are NOT in the contract - they back the
 code-generation progress panel (`ProjectCodeGenService`'s module docstring
-has the full rationale), same precedent as `llm_config.py`. Every route here
-requires a committed `TechStackProfile` (`POST /tech-stack/select` first) -
-code can't be generated without knowing the target stack.
+has the full rationale), same precedent as `llm_config.py`. A committed
+`TechStackProfile` is not required beforehand - if none exists when
+generation starts, `ProjectCodeGenService._ensure_tech_stack_profile`
+auto-generates and commits one so code can't be generated against an
+unknown stack, but the user is never hard-blocked into visiting
+`POST /tech-stack/select` first.
 """
 
 from fastapi import APIRouter, Depends

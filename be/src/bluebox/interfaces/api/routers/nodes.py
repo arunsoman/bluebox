@@ -1,13 +1,18 @@
 """doc/api_event_contract.md SS5.1 Node CRUD.
 
-`POST /nodes` (create) and `PUT /nodes/{node_id}` (arbitrary field update)
-are not implemented: `NodeService` (pass 5) only has
-get/deactivate/restore/enrich - accept-then-edit via steering is the
-intended creation path (see `steering_service.py`'s module docstring), and
-a generic field-by-field update has no real domain operation behind it yet.
-`DELETE` with `permanent=true` (hard delete) is likewise not supported -
-only the `permanent=false` (deactivate) case maps to a real lifecycle method.
+`POST /nodes` (create) is not implemented: `NodeService` (pass 5) has no
+domain operation for mapping an arbitrary `node_type` + free-form `data`
+onto the right `Node` subtype's required fields - accept-then-edit via
+steering is the intended creation path (see `steering_service.py`'s module
+docstring). `PUT /nodes/{node_id}` IS contracted and now implemented via
+`NodeService.update` - frontend's Node Editor "Save Changes" and the
+Completeness Gate's defer actions depend on it (previously 405'd against
+nothing). `DELETE` with `permanent=true` (hard delete) is likewise not
+supported - only the `permanent=false` (deactivate) case maps to a real
+lifecycle method.
 """
+
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
@@ -27,6 +32,16 @@ class DeleteNodeRequest(BaseModel):
     permanent: bool = False
     delete_downstream: bool = False
     rationale: str = ""
+
+
+class UpdateNodeRequest(BaseModel):
+    """doc/api_event_contract.md SS5.1 `UpdateNodeRequest`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    data: dict[str, Any]
+    source: Literal["user_edit", "steering", "enrichment"]
+    change_rationale: str | None = None
 
 
 class EnrichRequest(BaseModel):
@@ -49,6 +64,18 @@ def get_node(
     project_id: str, node_id: str, service: NodeService = Depends(get_node_service)
 ) -> Node:
     return _get_or_404(service, project_id, node_id)
+
+
+@router.put("/{node_id}", response_model=Node)
+def update_node(
+    project_id: str, node_id: str, request: UpdateNodeRequest,
+    service: NodeService = Depends(get_node_service),
+) -> Node:
+    _get_or_404(service, project_id, node_id)
+    try:
+        return service.update(project_id, node_id, request.data, change_rationale=request.change_rationale)
+    except ValueError as exc:
+        raise HTTPException(400, detail=str(exc)) from exc
 
 
 @router.delete("/{node_id}")

@@ -201,11 +201,12 @@
   transition: border-color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
 }
-.fieldInput:hover { border-color: var(--color-slate); }
+.fieldInput:hover { border-color: var(--color-slate); background-color: steelblue; }
 .fieldInput:focus {
   outline: none;
   border-color: var(--color-frontend);
   box-shadow: var(--focus-ring-frontend);
+  background-color: blue;
 }
 .fieldInput::placeholder { color: var(--color-slate); }
 

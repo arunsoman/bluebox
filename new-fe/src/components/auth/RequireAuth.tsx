@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
+import { usePipelineStore } from "@/stores/pipelineStore";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import { useToast } from "@/components/common/Toast/ToastContext";
 import { env } from "@/config/env";
@@ -22,6 +23,7 @@ export function RequireAuth() {
   useIdleTimeout(env.sessionReauthIdleMinutes, () => {
     if (useAuthStore.getState().status === "authenticated") {
       logout();
+      usePipelineStore.getState().disconnect();
       pushToast({
         severity: "info",
         title: "Signed out",

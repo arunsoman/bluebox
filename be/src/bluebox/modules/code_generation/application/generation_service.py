@@ -27,11 +27,13 @@ constructor injection instead of a singleton setter.
 
 import asyncio
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, MutableMapping
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
+from bluebox.modules.advisory.tech_stack.application.tech_stack_service import TechStackService
 from bluebox.modules.advisory.tech_stack.domain.tech_stack_profile import TechStackProfile
+from bluebox.modules.advisory.tech_stack.llm.responses import TechStackOptionsMatrix
 from bluebox.modules.code_generation.application.codegen_service import CodeGenService
 from bluebox.modules.code_generation.application.syntax_validator import GeneratedCodeSyntaxError
 from bluebox.modules.code_generation.domain.generation_job import TaskGenerationStatus
@@ -41,6 +43,7 @@ from bluebox.modules.code_generation.domain.workspace import (
     CodeGenStatus,
     GeneratedFile,
 )
+from bluebox.modules.core_pipeline.llm.requests import ConfirmedNodeRef
 from bluebox.modules.governance.application.node_service import NodeNotFoundError
 from bluebox.shared_kernel.domain.node import EngineeringTaskNode
 from bluebox.shared_kernel.llm.connector import LLMCallFailed
@@ -52,10 +55,14 @@ Broadcaster = Callable[[str, str, Any], Awaitable[None]]
 # disk write) until real timings warrant something better.
 _SECONDS_PER_FILE_ESTIMATE = 20.0
 
-
-class NoTechStackProfileError(Exception):
-    def __init__(self, project_id: str) -> None:
-        super().__init__(f"project {project_id!r} has no committed tech stack profile - select one first")
+# Tech stack selection is optional going into Stage 8: a project that never
+# visited the Tech Stack Advisor panel still gets generated code rather than
+# being blocked, by auto-committing the first option of a freshly generated
+# matrix. The user can still steer afterward from the Tech Stack panel -
+# `_ensure_tech_stack_profile` stashes the matrix in `pending_tech_stack_options`
+# (same slot `routers/tech_stack.py`'s `/options` endpoint writes to) so
+# `POST /tech-stack/select` can re-pick from it without regenerating.
+_DEFAULT_SCALE_PERSONA = "MEDIUM"
 
 
 class GenerationNotFoundError(Exception):
@@ -97,13 +104,32 @@ class ProjectCodeGenService:
         tech_stack_profiles: TechStackProfileRepository,
         workspace: WorkspaceRepository,
         broadcast: Broadcaster,
+        tech_stack_service: TechStackService,
+        pending_tech_stack_options: MutableMapping[str, TechStackOptionsMatrix],
     ) -> None:
         self._codegen = codegen
         self._nodes = nodes
         self._tech_stack_profiles = tech_stack_profiles
         self._workspace = workspace
         self._broadcast = broadcast
+        self._tech_stack_service = tech_stack_service
+        self._pending_tech_stack_options = pending_tech_stack_options
         self._projects: dict[str, _ProjectGenState] = {}
+
+    async def _ensure_tech_stack_profile(self, project_id: str) -> TechStackProfile:
+        profile = self._tech_stack_profiles.get(project_id)
+        if profile is not None:
+            return profile
+
+        actors = [
+            ConfirmedNodeRef(node_id=n.node_id, name=n.name, description=n.description)
+            for n in self._nodes.list_by_stage(project_id, 2)
+        ]
+        matrix = await self._tech_stack_service.generate_options(actors, _DEFAULT_SCALE_PERSONA)
+        self._pending_tech_stack_options[project_id] = matrix
+        profile = self._tech_stack_service.commit_selection(project_id, matrix, matrix.options[0].option_id)
+        await self._broadcast(project_id, "TECH_STACK_AUTO_SELECTED", profile.model_dump(mode="json"))
+        return profile
 
     def _ensure_state(self, project_id: str) -> _ProjectGenState:
         state = self._projects.get(project_id)
@@ -137,9 +163,7 @@ class ProjectCodeGenService:
         return list(self._ensure_state(project_id).tasks.values())
 
     async def start(self, project_id: str, request: CodeGenRequest) -> CodeGenStart:
-        tech_stack = self._tech_stack_profiles.get(project_id)
-        if tech_stack is None:
-            raise NoTechStackProfileError(project_id)
+        tech_stack = await self._ensure_tech_stack_profile(project_id)
 
         state = self._ensure_state(project_id)
         tasks = self._target_tasks(project_id, request)
@@ -242,9 +266,7 @@ class ProjectCodeGenService:
         )
 
     async def run_task(self, project_id: str, task_id: str) -> list[GeneratedFile]:
-        tech_stack = self._tech_stack_profiles.get(project_id)
-        if tech_stack is None:
-            raise NoTechStackProfileError(project_id)
+        tech_stack = await self._ensure_tech_stack_profile(project_id)
 
         node = self._nodes.get(project_id, task_id)
         if node is None or not isinstance(node, EngineeringTaskNode):

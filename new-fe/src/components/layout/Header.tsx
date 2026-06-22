@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/stores/authStore";
+import { usePipelineStore } from "@/stores/pipelineStore";
 import { useLayout } from "./LayoutContext";
 import styles from "./Header.module.css";
 
@@ -10,6 +11,11 @@ export function Header({ left }: HeaderProps) {
   const { config } = useLayout();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+
+  function handleLogout() {
+    logout();
+    usePipelineStore.getState().disconnect();
+  }
 
   return (
     <header className={styles.header}>
@@ -30,7 +36,7 @@ export function Header({ left }: HeaderProps) {
         )}
         <span className={styles.divider}>│</span>
         <span className={styles.userTag}>{user?.email}</span>
-        <button className={styles.logoutBtn} onClick={logout}>
+        <button className={styles.logoutBtn} onClick={handleLogout}>
           logout
         </button>
       </div>

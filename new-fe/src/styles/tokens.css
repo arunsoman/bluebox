@@ -285,7 +285,8 @@
   --term-bg-panel: var(--color-white);
   --term-bg-header: var(--color-white);
   --term-bg-footer: var(--color-white);
-  --term-bg-input: var(--color-white);
+  --term-bg-input: var(  --color-primary-glow: rgba(37, 99, 235, 0.35);
+);
 
   --term-fg: var(--color-ink);
   --term-fg-dim: var(--color-slate);

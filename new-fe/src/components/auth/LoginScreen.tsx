@@ -20,7 +20,7 @@ export function LoginScreen() {
     e.preventDefault();
     try {
       await login({ email, password, persona, trust_mode_default: "PARANOID" });
-      navigate("/", { replace: true });
+      navigate("/workspace", { replace: true });
     } catch (err) {
       pushToast({
         severity: "error",

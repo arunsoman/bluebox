@@ -28,7 +28,6 @@ from bluebox.modules.advisory.tech_stack.application.tech_stack_service import (
 )
 from bluebox.modules.code_generation.application.generation_service import (
     GenerationNotFoundError,
-    NoTechStackProfileError,
     TaskAlreadyRunningError,
 )
 from bluebox.modules.code_generation.application.runtime_sandbox import SandboxNotRunningError
@@ -150,7 +149,6 @@ def create_app() -> FastAPI:
     @app.exception_handler(HostingOptionNotFoundError)
     @app.exception_handler(TechStackOptionNotFoundError)
     @app.exception_handler(PathEscapeError)
-    @app.exception_handler(NoTechStackProfileError)
     @app.exception_handler(GeneratedCodeSyntaxError)
     async def bad_request_handler(_: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=400, content={"error": str(exc)})
